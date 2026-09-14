@@ -1,0 +1,13 @@
+tc_id,title,check,method,paths,token,expect_status,expected_message
+FR12-TC01,Admin đăng nhập Web Admin bằng JWT hợp lệ thì vào được Dashboard,admin_ui_login,,,admin,,Người dùng
+FR12-TC02,User thường đăng nhập Web Admin thì bị từ chối và không thấy Admin UI,admin_ui_denied,,,user,,Bạn không phải là admin!
+FR12-TC03,Chặn truy cập Admin UI không được làm ở phía client có thể vượt qua,admin_ui_bypass,,,user,,Người dùng
+FR12-TC04,Gọi API Admin không kèm token thì bị từ chối,api_denied,GET,/api/admin/users|/api/admin/orders|/api/coupons,none,401,Unauthorized
+FR12-TC05,Gọi API Admin với JWT giả mạo chữ ký thì bị từ chối,api_denied,GET,/api/admin/users|/api/admin/orders,invalid,403,Forbidden
+FR12-TC06,Sửa role trong payload JWT mà không ký lại thì vẫn bị từ chối,api_denied,GET,/api/admin/users|/api/admin/orders,tampered,403,Forbidden
+FR12-TC07,User dùng token của mình gọi API Admin thì bị từ chối 403,api_denied,GET,/api/admin/users|/api/admin/orders|/api/coupons,user,403,
+FR12-TC08,Admin dùng token hợp lệ gọi API Admin thì thành công,api_allowed,GET,/api/admin/users|/api/admin/orders|/api/coupons,admin,200,
+FR12-TC09,Không có token thì không được tạo sửa xóa sản phẩm,write_denied,,/api/products,none,,
+FR12-TC10,User thường không được tạo sửa xóa sản phẩm và danh mục,write_denied,,/api/products|/api/categories,user,,
+FR12-TC11,Admin được phép tạo sửa xóa sản phẩm,write_allowed,,/api/products,admin,200,
+FR12-TC12,User không thể tự nâng quyền thành admin qua API cập nhật hồ sơ,privilege_escalation,PUT,/api/users/me,user,,

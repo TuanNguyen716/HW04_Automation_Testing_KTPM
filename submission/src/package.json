@@ -1,0 +1,22 @@
+{
+  "name": "src",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test --project=chrome --project=edge",
+    "test:all": "playwright test",
+    "test:fr02": "playwright test tests/fr-02-login-lockout.spec.ts --project=chrome --project=edge",
+    "report": "playwright show-report",
+    "test:fr11": "playwright test tests/fr-11-order-history.spec.ts --project=chrome --project=edge",
+    "test:fr12": "playwright test tests/fr-12-access-control.spec.ts --project=chrome --project=edge"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.1"
+  }
+}

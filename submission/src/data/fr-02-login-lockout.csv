@@ -1,0 +1,13 @@
+tc_id,title,check,email,password,pre_fails,wait_seconds,expect_success,expected_status,expected_message
+FR02-TC01,Đăng nhập với Email + Password hợp lệ,login,{{FRESH}},{{CORRECT}},0,0,true,200,
+FR02-TC02,Email sai định dạng phải bị HTML5 validation chặn submit,html5_email,user-at-eshop.com,Test1234!,0,0,false,,
+FR02-TC03,Email để trống hiển thị validation bắt buộc,required_field,{{EMPTY}},Test1234!,0,0,false,,
+FR02-TC04,Password để trống hiển thị validation bắt buộc,required_field,{{FRESH}},{{EMPTY}},0,0,false,,
+FR02-TC05,Sai 2 lần liên tiếp (counter +1 mỗi lần) tài khoản chưa bị khóa,login,{{FRESH}},{{CORRECT}},2,0,true,200,
+FR02-TC06,Sai lần thứ 3 liên tiếp thì tài khoản bị khóa,login,{{FRESH}},DefinitelyWrong9!,2,0,false,403,Đăng nhập thất bại. Vui lòng kiểm tra lại.
+FR02-TC07,Đang bị khóa thì credentials đúng vẫn bị từ chối,login,{{FRESH}},{{CORRECT}},3,0,false,403,Đăng nhập thất bại. Vui lòng kiểm tra lại.
+FR02-TC08,Hết 30 giây khóa thì đăng nhập lại thành công,login,{{FRESH}},{{CORRECT}},3,35,true,200,
+FR02-TC09,Đăng nhập thành công thì request có Authorization Bearer,bearer,{{FRESH}},{{CORRECT}},0,0,true,200,
+FR02-TC10,Thông báo lỗi không phân biệt email tồn tại hay không,no_enumeration,{{FRESH}},DefinitelyWrong9!,0,0,false,401,Đăng nhập thất bại. Vui lòng kiểm tra lại.
+FR02-TC11,Ô email dùng type=email và ô password dùng type=password,field_types,{{FRESH}},{{CORRECT}},0,0,false,,
+FR02-TC12,Phản hồi đăng nhập không được trả về mật khẩu người dùng,no_password_leak,{{FRESH}},{{CORRECT}},0,0,true,200,
