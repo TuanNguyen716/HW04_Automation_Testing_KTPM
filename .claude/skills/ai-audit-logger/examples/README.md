@@ -20,16 +20,16 @@ Verify: `python3 .claude/skills/ai-audit-logger/scripts/audit.py selftest` -> `s
 
 ```bash
 cd .claude/skills/ai-audit-logger/examples
-A() { python3 ../scripts/audit.py "$@"; }        # shorthand
+audit() { python3 ../scripts/audit.py "$@"; }        # shorthand
 
 rm -f ai-audit-log.json AI_Audit_Report.md       # 1. start clean
-A init < /dev/stdin                              #    (session JSON on stdin)
-A log  < /dev/stdin                              # 2. log the prompt + AI output verbatim
-A update A002 < /dev/stdin                       # 3. add human review + human action
-A issue  A002 < /dev/stdin                       # 4. record each AI mistake
-A list                                           # 5. show the accumulated trail
-A validate                                       # 6. PASS / WARNING / ERROR
-A report -o AI_Audit_Report.md                   # 7. regenerate the Markdown report
+audit init < /dev/stdin                              #    (session JSON on stdin)
+audit log  < /dev/stdin                              # 2. log the prompt + AI output verbatim
+audit update A002 < /dev/stdin                       # 3. add human review + human action
+audit issue  A002 < /dev/stdin                       # 4. record each AI mistake
+audit list                                           # 5. show the accumulated trail
+audit validate                                       # 6. PASS / WARNING / ERROR
+audit report -o AI_Audit_Report.md                   # 7. regenerate the Markdown report
 ```
 
 The exact JSON payloads used to build these files are the ones in `SKILL.md`'s workflow
@@ -43,7 +43,7 @@ section, extended with the FR-01 content visible in `ai-audit-log.json`.
 | 2 | AI mistakes are recorded with severity, cause and correction | report section 6 - fragile selector (high), flaky wait (medium), weak assertion (high) |
 | 3 | Credentials are never stored | the `A002` prompt shows `password: [REDACTED]`; the logger printed a `SECURITY:` warning when it was logged |
 | 4 | Nothing is invented | `A003` has no review yet, so the report prints `_Not provided_` instead of inventing one |
-| 5 | Completeness is checkable | `A validate` -> `2 pass, 1 warning, 0 error`, warning naming `A003` |
+| 5 | Completeness is checkable | `audit validate` -> `2 pass, 1 warning, 0 error`, warning naming `A003` |
 | 6 | The log accumulates and is reusable | rerun steps 2-4 for `FR-08 Checkout` with no change to the skill |
 
 ## Validation reference
