@@ -256,3 +256,97 @@ export async function seedOrders(
 export function splitList(cell: string | undefined): string[] {
   return (cell ?? '').split('|').map((s) => s.trim()).filter(Boolean);
 }
+
+/* ------------------------------------------------------------------------- *
+ * FR-12 - Access control helpers.
+ *
+ * Every FR-12 row boils down to "call endpoint X carrying credential Y and
+ * check the verdict", so the spec only needs a way to turn a token *kind*
+ * (from the CSV) into a real Authorization header, plus one thin request
+ * wrapper. The forged/tampered tokens are built here so the spec stays
+ * declarative.
+ * ------------------------------------------------------------------------- */
+
+/** The Web Admin subsystem (separate Vite app from the storefront baseURL). */
+export const ADMIN_BASE = process.env.ADMIN_BASE || 'http://localhost:5174';
+
+export type TokenKind = 'none' | 'invalid' | 'tampered' | 'user' | 'admin';
+
+const b64url = (buf: Buffer) => buf.toString('base64url');
+
+/**
+ * Re-sign nothing: take a real token, flip `role` to `admin` in the payload and
+ * keep the original signature. A correct verifier must reject this (the
+ * signature no longer matches the payload); a broken one hands over admin.
+ */
+export function tamperRole(token: string, role = 'admin'): string {
+  const [header, payload, signature] = token.split('.');
+  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  claims.role = role;
+  return `${header}.${b64url(Buffer.from(JSON.stringify(claims)))}.${signature}`;
+}
+
+/** A syntactically valid JWT signed with the wrong key. */
+export const FORGED_TOKEN =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
+  b64url(Buffer.from(JSON.stringify({ id: 1, role: 'admin', iat: 1700000000 }))) +
+  '.n0tAV4l1dS1gnatureF0rTh1sS3cr3tK3y';
+
+/** Resolve a CSV token kind to the string to put in the Authorization header. */
+export async function tokenFor(kind: TokenKind, user: Account): Promise<string> {
+  switch (kind) {
+    case 'none': return '';
+    case 'invalid': return FORGED_TOKEN;
+    case 'tampered': return tamperRole(user.token);
+    case 'user': return user.token;
+    case 'admin': return adminToken();
+  }
+}
+
+export type ApiResult = { status: number; body: any };
+
+/** One API call. `token` empty -> no Authorization header at all. */
+export async function apiCall(
+  method: string,
+  path: string,
+  token: string,
+  body?: unknown,
+): Promise<ApiResult> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: res.status, body: await res.json().catch(() => null) };
+}
+
+/** A request is "denied" when the server answers 401 or 403. */
+export const DENIED = [401, 403];
+
+/** Product payload used by the write-permission rows. */
+export const productBody = (name: string) => ({
+  name,
+  price: 123000,
+  description: 'FR-12 access control fixture',
+  imageUrl: '',
+  category_id: 1,
+});
+
+/** Create a product as admin and return its id (fixture data for PUT/DELETE rows). */
+export async function createProductAsAdmin(name: string): Promise<number> {
+  const { status, body } = await apiCall('POST', '/api/products', await adminToken(), productBody(name));
+  if (status !== 200 || !body?.id) throw new Error(`fixture product create failed (${status})`);
+  return body.id;
+}
+
+/** GET /api/products/:id - used to prove a rejected write really changed nothing. */
+export async function getProduct(id: number): Promise<ApiResult> {
+  return apiCall('GET', `/api/products/${id}`, '');
+}
+
+/** Best-effort teardown so FR-12 never leaves rows behind in the SUT. */
+export async function deleteProductAsAdmin(id: number): Promise<void> {
+  await apiCall('DELETE', `/api/products/${id}`, await adminToken()).catch(() => {});
+}
