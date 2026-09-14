@@ -1,6 +1,6 @@
 # AI Audit Report
 
-> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 13:22:47 +0700.
+> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 14:00:16 +0700.
 > Every entry below was recorded at the time of the interaction; fields that were
 > never recorded are shown as _Not provided_ and are **not** reconstructed after the fact.
 
@@ -27,14 +27,14 @@ Declared by: Nguyễn Trần Minh Tuấn (20127420)
 | System under test | EShop SUT - backend http://localhost:3000, frontend http://localhost:5173 |
 | Feature(s) under test | FR-02 Login and account lockout |
 | Audit started | 2026-09-14 10:06:25 +0700 |
-| Audit last updated | 2026-09-14 13:22:41 +0700 |
-| Interactions recorded | 9 |
+| Audit last updated | 2026-09-14 14:00:10 +0700 |
+| Interactions recorded | 12 |
 
 ## 3. AI Tools Used
 
 | AI tool | Interactions | Used for |
 | --- | --- | --- |
-| Claude | 8 | Agent Skill development, Automation script generation, Bug analysis, Debugging, Documentation, Test case analysis |
+| Claude | 11 | Agent Skill development, Automation script generation, Bug analysis, Debugging, Documentation, Test case analysis |
 | Claude (Claude Code, Opus 5) | 1 | Agent Skill development |
 
 ## 4. AI Interaction Log
@@ -507,6 +507,173 @@ _Not provided_
 
 ---
 
+### A010 - Review the 12 hand-written FR-11 test cases in docs/FR-11.md against the running SUT for redundancy, missing context and untestable expectations, within a 12-case budget
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:59:26 +0700 |
+| AI tool | Claude |
+| Category | Test case analysis |
+| Feature | FR-11 Order history view (user) |
+| Test case ID | _Not provided_ |
+| File modified | docs/FR-11.md (reviewed, not edited) |
+| Commit | _Not provided_ |
+| Output accepted | Yes |
+| Output modified | No |
+| Related interaction | _Not provided_ |
+| Final status | accepted |
+
+**Prompt**
+
+```
+Please help me create Playwright test cases for automation testing. The system specifications are described in @"docs/System Requirements Specification.md", the api specification in @"docs/api_specification.md", I have the system running and ready. I want to start with test cases for the FR-11: Order history view (user) function, test cases I think are described in @docs/FR-11.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.
+```
+
+**AI output**
+
+```md
+## Review of your FR-11 list
+
+**Redundant - merged.** TC-04/05/06 ("ma don correct", "ngay correct", "tong tien correct") are three tests over three cells of one row, and none of them state *correct against what*. I collapsed them into one case (FR11-TC04) that asserts all four cells against the record the backend returns for that order, and kept currency **format** separately (FR11-TC05) since "dung dinh dang tien te" is its own clause. That freed 2 slots.
+
+**Lacked context - pinned down against the running app.** Several cases named a page that doesn't exist: there is no /orders route. Order history is the right-hand panel of /profile. Concrete strings now in the spec: empty state = "Ban chua co don hang nao.", logged-out = "Vui long dang nhap", columns = Ma DH / Ngay dat / Tong tien / Trang thai.
+
+**Untestable as worded - reworded.** TC-08 "phan biet mau sac" has no oracle. It's now: N distinct statuses on screen => N pairwise-distinct computed background-color values, none transparent. TC-11 was also under-specified: the UI merely hides the panel, so the test asserts *both* the UI message and that GET /api/orders/my-orders without a token returns 401 - the actual enforcement point.
+
+**Added with the 2 freed slots.** FR11-TC03 (the four required columns exist - traces 1:1 to the SRS "Hien thi:" line) and FR11-TC10 (ownership at the API).
+
+**Not testable at all, so dropped from consideration:** Profile.jsx falls back to status.toUpperCase() (English) for an unknown status, violating the Vietnamese requirement - but the backend whitelists transitions, so no unknown status can be reached through the API. Would need direct DB access.
+```
+
+**Human review**
+
+Accepted the consolidation and the 12-case set as proposed, and directed that docs/Report.md be updated to match the automated cases. No changes requested to the case selection.
+
+**Human decision / action**
+
+Approved the set; asked for the audit log and the report section to be written from it.
+
+---
+
+### A011 - Generate the data-driven Playwright suite for FR-11: a 12-row CSV, one spec looped over it, and reusable order-seeding helpers in the shared fixtures
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:59:43 +0700 |
+| AI tool | Claude |
+| Category | Automation script generation |
+| Feature | FR-11 Order history view (user) |
+| Test case ID | FR11-TC01..FR11-TC12 |
+| File modified | src/data/fr-11-order-history.csv, src/tests/fr-11-order-history.spec.ts, src/tests/fixtures.ts, src/package.json |
+| Commit | _Not provided_ |
+| Output accepted | Yes |
+| Output modified | No |
+| Related interaction | A010 |
+| Final status | accepted |
+
+**Prompt**
+
+```
+(same turn as A010) ... I want to start with test cases for the FR-11: Order history view (user) function ... The limit is 12 test cases per function
+```
+
+**AI output**
+
+```ts
+data/fr-11-order-history.csv (12 rows):
+tc_id,title,check,statuses,amounts,other_user_statuses,expect_rows,expected_message
+FR11-TC01,...,list,pending|confirmed,250000|99000,,2,
+FR11-TC02,...,empty,,,,0,Ban chua co don hang nao.
+FR11-TC03,...,columns,pending,250000,,1,
+FR11-TC04,...,fields,shipping,1234567,,1,
+FR11-TC05,...,currency,pending,1234567,,1,
+FR11-TC06,...,vi_status,pending|confirmed|shipping|delivered|canceled,100000,,5,
+FR11-TC07,...,colors,pending|confirmed|shipping|delivered|canceled,100000,,5,
+FR11-TC08,...,multiple,pending|confirmed|shipping|delivered|canceled|pending,100000,,6,
+FR11-TC09,...,isolation_ui,pending|confirmed,250000,pending|delivered,2,
+FR11-TC10,...,isolation_api,pending,250000,pending,1,
+FR11-TC11,...,anonymous,,,,0,Vui long dang nhap
+FR11-TC12,...,refresh,pending|confirmed|shipping,250000,,3,
+
+Key design decision in tests/fr-11-order-history.spec.ts - date and amount are rendered by the page with toLocaleDateString()/toLocaleString(), i.e. in the BROWSER's locale, so the expected string is derived in-page from the backend value instead of being hard-coded:
+
+  const [expectedDate, expectedAmount] = await page.evaluate(
+    ([createdAt, total]) => [
+      new Date(createdAt).toLocaleDateString(),
+      `${Number(total).toLocaleString()} d`,
+    ],
+    [order.created_at, order.total_amount],
+  );
+  await expect(cells.nth(1)).toHaveText(expectedDate);
+  await expect(cells.nth(2)).toHaveText(expectedAmount);
+
+Order seeding helpers added to the shared tests/fixtures.ts (registerAndLogin, seedOrders, setOrderStatus, getMyOrders, getOrderById, VI_STATUS), so every row owns a private account and the browser projects never see each other's orders.
+```
+
+**Human review**
+
+Accepted. Suite executed against the live SUT: 11 of 12 pass on Chrome and on Edge; the single failure is a genuine product defect, not a script defect.
+
+**Human decision / action**
+
+Kept the generated files; added npm run test:fr11 pinned to Chrome + Edge.
+
+**Issues found in this output:** Ran the new FR-11 suite against all three browser projects e (low), Attempted a TypeScript typecheck with `npx tsc --noEmit` on  (low)
+
+---
+
+### A012 - Classify the single FR-11 failure as a product defect or a test defect, and trace it to source
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:59:56 +0700 |
+| AI tool | Claude |
+| Category | Bug analysis |
+| Feature | FR-11 Order history view (user) |
+| Test case ID | FR11-TC10 |
+| File modified | _Not provided_ |
+| Commit | _Not provided_ |
+| Output accepted | Yes |
+| Output modified | No |
+| Related interaction | A011 |
+| Final status | accepted |
+
+**Prompt**
+
+```
+(same turn as A010/A011) - run the generated FR-11 suite against the running system and report the outcome
+```
+
+**AI output**
+
+```js
+FR11-TC10 fails:
+
+  GET /api/orders/30 with another user's token returned 200
+  {"id":30,"user_id":110,"total_amount":250000,"status":"pending",...}
+
+backend/server.js:344 - GET /api/orders/:id has NO authenticateToken middleware and no ownership check:
+
+  app.get("/api/orders/:id", (req, res) => {
+    db.get("SELECT * FROM orders WHERE id = ?", [req.params.id], (err, order) => {
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      res.json(order);
+    });
+  });
+
+Any order is readable by anyone, including unauthenticated callers. This contradicts FR-11 'Nguoi dung chi xem duoc don hang cua chinh minh'. The my-orders list IS correctly scoped (WHERE user_id = ?), which is why FR11-TC09 passes and FR11-TC10 does not. The test was left asserting the correct behaviour (401/403/404) so it stays red until the product is fixed.
+```
+
+**Human review**
+
+Confirmed as a genuine product defect (broken object-level authorisation / IDOR), not a test defect. Verified independently with a direct unauthenticated curl against the endpoint before the suite was written.
+
+**Human decision / action**
+
+Kept FR11-TC10 asserting the correct behaviour so the suite stays red until fixed; recorded the defect in the report as FR-11 bug #6.
+
+---
+
 ## 5. Human Review and Corrections
 
 | ID | AI proposed | Human review | Human action | Status |
@@ -519,8 +686,11 @@ _Not provided_
 | A007 | Measured against freshly registered accounts, then confirmed in the SUT source. Execution… | Not recorded as an independent verification. The user accepted the defect list by asking … | Directed the 5 defects into docs/Report.md section 6. GitHub Issues not yet filed. | accepted |
 | A008 | Firefox is blocked by a host-environment fault, not by the test code. Two distinct failur… | The user rejected the AI's first recommendation (swap Firefox for WebKit) and directed it… | Deferred Firefox ('I'll figure out how to get Firefox working later') and redirected the … | rejected |
 | A009 | Rewrote docs/Report.md against docs/Main_Report_Template.md, preserving the existing head… | Not yet reviewed. The AI flagged two items for the user's attention: (1) the section 4 'H… | _Not provided_ | pending_review |
+| A010 | ## Review of your FR-11 list **Redundant - merged.** TC-04/05/06 ("ma don correct", "ngay… | Accepted the consolidation and the 12-case set as proposed, and directed that docs/Report… | Approved the set; asked for the audit log and the report section to be written from it. | accepted |
+| A011 | data/fr-11-order-history.csv (12 rows): tc_id,title,check,statuses,amounts,other_user_sta… | Accepted. Suite executed against the live SUT: 11 of 12 pass on Chrome and on Edge; the s… | Kept the generated files; added npm run test:fr11 pinned to Chrome + Edge. | accepted |
+| A012 | FR11-TC10 fails: GET /api/orders/30 with another user's token returned 200 {"id":30,"user… | Confirmed as a genuine product defect (broken object-level authorisation / IDOR), not a t… | Kept FR11-TC10 asserting the correct behaviour so the suite stays red until fixed; record… | accepted |
 
-Interactions where AI output was accepted unchanged: 3 of 9.
+Interactions where AI output was accepted unchanged: 6 of 12.
 
 ## 6. AI Mistakes / Missed Issues
 
@@ -536,19 +706,21 @@ Interactions where AI output was accepted unchanged: 3 of 9.
 | A006 | The login inputs are located by position - page.locator('form input').nth(0) and .nth(1) … | medium | Not an AI shortcut: the SUT's form genuinely offers nothing better. The labels have no fo… | None applied. The constraint and its reason are documented in the spec file header so the… | Accepted as a known limitation. Adding or reordering a field in Login.jsx will break thes… |
 | A007 | Reported the wrong lockout threshold. The first probe ran against the shared test@eshop.c… | high | The account already carried a failed attempt from an earlier UI interaction in the same s… | Re-measured on a freshly registered account via POST /api/register, which showed the thre… | Fixed. The suite now registers a private account per test row so every measurement starts… |
 | A009 | The 'Human Review & Gap Analysis' table written into docs/Report.md section 4 presents AI… | medium | The AI populated a section whose entire purpose is to record what the student caught in A… | Not yet applied - flagged to the user at delivery, with the recommendation to rewrite tho… | Open. Section 4 of docs/Report.md must not be submitted as-is. |
+| A011 | Ran the new FR-11 suite against all three browser projects even though Firefox is already… | low | The AI executed the default `playwright test` (all projects) instead of following the pro… | Re-ran through a new `npm run test:fr11` script pinned to Chrome + Edge, matching the exi… | Fixed; src/package.json now carries test:fr11 pinned to Chrome + Edge. Clean run: 22 pass… |
+| A011 | Attempted a TypeScript typecheck with `npx tsc --noEmit` on the edited fixtures; TypeScri… | low | The AI assumed a TypeScript compiler was available because the project is written in .ts,… | Used `playwright test --list` as the compile gate instead - it transpiles and loads the s… | Resolved; --list reported all 12 tests, and the subsequent live run executed the spec suc… |
 
-Issues by severity: high=1, low=4, medium=5
+Issues by severity: high=1, low=6, medium=5
 
 ## 7. Summary of AI Assistance
 
 | Metric | Value |
 | --- | --- |
-| Total AI interactions | 9 |
-| Interactions with human review recorded | 8 |
-| AI outputs accepted as-is | 3 |
+| Total AI interactions | 12 |
+| Interactions with human review recorded | 11 |
+| AI outputs accepted as-is | 6 |
 | AI outputs accepted after human modification | 2 |
 | AI outputs rejected | 1 |
-| Issues found during human review | 10 |
+| Issues found during human review | 12 |
 
 **AI usage by category**
 
@@ -556,10 +728,10 @@ Issues by severity: high=1, low=4, medium=5
 | --- | --- |
 | Documentation | 3 |
 | Agent Skill development | 2 |
-| Automation script generation | 1 |
-| Bug analysis | 1 |
+| Automation script generation | 2 |
+| Bug analysis | 2 |
+| Test case analysis | 2 |
 | Debugging | 1 |
-| Test case analysis | 1 |
 
 ## 8. Final Notes
 

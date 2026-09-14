@@ -252,7 +252,90 @@
           "resolution": "Open. Section 4 of docs/Report.md must not be submitted as-is."
         }
       ]
+    },
+    {
+      "category": "Test case analysis",
+      "purpose": "Review the 12 hand-written FR-11 test cases in docs/FR-11.md against the running SUT for redundancy, missing context and untestable expectations, within a 12-case budget",
+      "feature": "FR-11 Order history view (user)",
+      "output_lang": "md",
+      "file_modified": "docs/FR-11.md (reviewed, not edited)",
+      "prompt": "Please help me create Playwright test cases for automation testing. The system specifications are described in @\"docs/System Requirements Specification.md\", the api specification in @\"docs/api_specification.md\", I have the system running and ready. I want to start with test cases for the FR-11: Order history view (user) function, test cases I think are described in @docs/FR-11.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.",
+      "ai_output": "## Review of your FR-11 list\n\n**Redundant - merged.** TC-04/05/06 (\"ma don correct\", \"ngay correct\", \"tong tien correct\") are three tests over three cells of one row, and none of them state *correct against what*. I collapsed them into one case (FR11-TC04) that asserts all four cells against the record the backend returns for that order, and kept currency **format** separately (FR11-TC05) since \"dung dinh dang tien te\" is its own clause. That freed 2 slots.\n\n**Lacked context - pinned down against the running app.** Several cases named a page that doesn't exist: there is no /orders route. Order history is the right-hand panel of /profile. Concrete strings now in the spec: empty state = \"Ban chua co don hang nao.\", logged-out = \"Vui long dang nhap\", columns = Ma DH / Ngay dat / Tong tien / Trang thai.\n\n**Untestable as worded - reworded.** TC-08 \"phan biet mau sac\" has no oracle. It's now: N distinct statuses on screen => N pairwise-distinct computed background-color values, none transparent. TC-11 was also under-specified: the UI merely hides the panel, so the test asserts *both* the UI message and that GET /api/orders/my-orders without a token returns 401 - the actual enforcement point.\n\n**Added with the 2 freed slots.** FR11-TC03 (the four required columns exist - traces 1:1 to the SRS \"Hien thi:\" line) and FR11-TC10 (ownership at the API).\n\n**Not testable at all, so dropped from consideration:** Profile.jsx falls back to status.toUpperCase() (English) for an unknown status, violating the Vietnamese requirement - but the backend whitelists transitions, so no unknown status can be reached through the API. Would need direct DB access.",
+      "human_review": "Accepted the consolidation and the 12-case set as proposed, and directed that docs/Report.md be updated to match the automated cases. No changes requested to the case selection.",
+      "human_action": "Approved the set; asked for the audit log and the report section to be written from it.",
+      "accepted": true,
+      "modified": false,
+      "status": "accepted",
+      "id": "A010",
+      "timestamp": "2026-09-14 13:59:26 +0700",
+      "ai_tool": "Claude",
+      "issues": [
+        {
+          "description": "Mis-stated the consolidation accounting: claimed merging the field-level cases 'freed 2 slots' and that both FR11-TC03 and FR11-TC10 were new additions. Only 1 slot was actually freed, and FR11-TC03 is the original TC-03 reworded, not a new case",
+          "severity": "medium",
+          "type": "Reasoning error",
+          "why": "The AI counted the merge as 3 cases collapsing into 1 (TC-04 + TC-05 + TC-06 -> FR11-TC04), but it had in fact split TC-06's format clause back out into a separate case (FR11-TC05), so 3 cases became 2, not 1. It then attributed the phantom second slot to FR11-TC03, which already had a 1:1 source in the original TC-03.",
+          "human_correction": "Corrected the accounting in docs/Report.md §2.4: 3 original cases (TC-04, TC-05, TC-06) become 2 automated cases (FR11-TC04 value-equality, FR11-TC05 currency format); net 1 freed slot, spent on the one genuinely new case FR11-TC10 (API-level ownership). FR11-TC03 is recorded as a rewording of TC-03.",
+          "resolution": "Fixed in the report before submission. The 12 automated cases themselves were unaffected - only the narrative describing how they were derived was wrong."
+        }
+      ]
+    },
+    {
+      "category": "Automation script generation",
+      "purpose": "Generate the data-driven Playwright suite for FR-11: a 12-row CSV, one spec looped over it, and reusable order-seeding helpers in the shared fixtures",
+      "feature": "FR-11 Order history view (user)",
+      "output_lang": "ts",
+      "test_case_id": "FR11-TC01..FR11-TC12",
+      "file_modified": "src/data/fr-11-order-history.csv, src/tests/fr-11-order-history.spec.ts, src/tests/fixtures.ts, src/package.json",
+      "related_id": "A010",
+      "prompt": "(same turn as A010) ... I want to start with test cases for the FR-11: Order history view (user) function ... The limit is 12 test cases per function",
+      "ai_output": "data/fr-11-order-history.csv (12 rows):\ntc_id,title,check,statuses,amounts,other_user_statuses,expect_rows,expected_message\nFR11-TC01,...,list,pending|confirmed,250000|99000,,2,\nFR11-TC02,...,empty,,,,0,Ban chua co don hang nao.\nFR11-TC03,...,columns,pending,250000,,1,\nFR11-TC04,...,fields,shipping,1234567,,1,\nFR11-TC05,...,currency,pending,1234567,,1,\nFR11-TC06,...,vi_status,pending|confirmed|shipping|delivered|canceled,100000,,5,\nFR11-TC07,...,colors,pending|confirmed|shipping|delivered|canceled,100000,,5,\nFR11-TC08,...,multiple,pending|confirmed|shipping|delivered|canceled|pending,100000,,6,\nFR11-TC09,...,isolation_ui,pending|confirmed,250000,pending|delivered,2,\nFR11-TC10,...,isolation_api,pending,250000,pending,1,\nFR11-TC11,...,anonymous,,,,0,Vui long dang nhap\nFR11-TC12,...,refresh,pending|confirmed|shipping,250000,,3,\n\nKey design decision in tests/fr-11-order-history.spec.ts - date and amount are rendered by the page with toLocaleDateString()/toLocaleString(), i.e. in the BROWSER's locale, so the expected string is derived in-page from the backend value instead of being hard-coded:\n\n  const [expectedDate, expectedAmount] = await page.evaluate(\n    ([createdAt, total]) => [\n      new Date(createdAt).toLocaleDateString(),\n      `${Number(total).toLocaleString()} d`,\n    ],\n    [order.created_at, order.total_amount],\n  );\n  await expect(cells.nth(1)).toHaveText(expectedDate);\n  await expect(cells.nth(2)).toHaveText(expectedAmount);\n\nOrder seeding helpers added to the shared tests/fixtures.ts (registerAndLogin, seedOrders, setOrderStatus, getMyOrders, getOrderById, VI_STATUS), so every row owns a private account and the browser projects never see each other's orders.",
+      "human_review": "Accepted. Suite executed against the live SUT: 11 of 12 pass on Chrome and on Edge; the single failure is a genuine product defect, not a script defect.",
+      "human_action": "Kept the generated files; added npm run test:fr11 pinned to Chrome + Edge.",
+      "accepted": true,
+      "modified": false,
+      "status": "accepted",
+      "id": "A011",
+      "timestamp": "2026-09-14 13:59:43 +0700",
+      "ai_tool": "Claude",
+      "issues": [
+        {
+          "description": "Ran the new FR-11 suite against all three browser projects even though Firefox is already documented as unlaunchable on this host (Report.md §3.4), producing 12 environment failures interleaved with the 1 real defect failure",
+          "severity": "low",
+          "type": "Browser compatibility problem",
+          "why": "The AI executed the default `playwright test` (all projects) instead of following the project's established convention - the existing test:fr02 script is deliberately pinned to --project=chrome --project=edge for exactly this reason. It read that config earlier in the session but did not apply the precedent when running.",
+          "human_correction": "Re-ran through a new `npm run test:fr11` script pinned to Chrome + Edge, matching the existing test:fr02 convention.",
+          "resolution": "Fixed; src/package.json now carries test:fr11 pinned to Chrome + Edge. Clean run: 22 passed, 2 failed (FR11-TC10 on both browsers, the genuine defect)."
+        },
+        {
+          "description": "Attempted a TypeScript typecheck with `npx tsc --noEmit` on the edited fixtures; TypeScript is not a dependency of this project, so the command was intercepted by npx and no typecheck actually ran",
+          "severity": "low",
+          "type": "Other",
+          "why": "The AI assumed a TypeScript compiler was available because the project is written in .ts, without checking package.json devDependencies (which list only @playwright/test and @types/node).",
+          "human_correction": "Used `playwright test --list` as the compile gate instead - it transpiles and loads the spec plus fixtures, so a type or syntax error surfaces there.",
+          "resolution": "Resolved; --list reported all 12 tests, and the subsequent live run executed the spec successfully. No separate typecheck step was added, as Playwright's own transpile covers it."
+        }
+      ]
+    },
+    {
+      "category": "Bug analysis",
+      "purpose": "Classify the single FR-11 failure as a product defect or a test defect, and trace it to source",
+      "feature": "FR-11 Order history view (user)",
+      "output_lang": "js",
+      "test_case_id": "FR11-TC10",
+      "related_id": "A011",
+      "prompt": "(same turn as A010/A011) - run the generated FR-11 suite against the running system and report the outcome",
+      "ai_output": "FR11-TC10 fails:\n\n  GET /api/orders/30 with another user's token returned 200\n  {\"id\":30,\"user_id\":110,\"total_amount\":250000,\"status\":\"pending\",...}\n\nbackend/server.js:344 - GET /api/orders/:id has NO authenticateToken middleware and no ownership check:\n\n  app.get(\"/api/orders/:id\", (req, res) => {\n    db.get(\"SELECT * FROM orders WHERE id = ?\", [req.params.id], (err, order) => {\n      if (!order) return res.status(404).json({ error: \"Order not found\" });\n      res.json(order);\n    });\n  });\n\nAny order is readable by anyone, including unauthenticated callers. This contradicts FR-11 'Nguoi dung chi xem duoc don hang cua chinh minh'. The my-orders list IS correctly scoped (WHERE user_id = ?), which is why FR11-TC09 passes and FR11-TC10 does not. The test was left asserting the correct behaviour (401/403/404) so it stays red until the product is fixed.",
+      "human_review": "Confirmed as a genuine product defect (broken object-level authorisation / IDOR), not a test defect. Verified independently with a direct unauthenticated curl against the endpoint before the suite was written.",
+      "human_action": "Kept FR11-TC10 asserting the correct behaviour so the suite stays red until fixed; recorded the defect in the report as FR-11 bug #6.",
+      "accepted": true,
+      "modified": false,
+      "status": "accepted",
+      "id": "A012",
+      "timestamp": "2026-09-14 13:59:56 +0700",
+      "ai_tool": "Claude",
+      "issues": []
     }
   ],
-  "updated_at": "2026-09-14 13:22:41 +0700"
+  "updated_at": "2026-09-14 14:00:52 +0700"
 }
