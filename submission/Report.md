@@ -5,6 +5,7 @@
 - Name: Nguyễn Trần Minh Tuấn
 - Student Id: `20127420`
 - Homework: `HW04 – Automation Testing`
+- Repository url: https://github.com/TuanNguyen716/HW04_Automation_Testing_KTPM
 - AI tools: Claude (Claude Code)
 - Automation tool: Playwright `1.63.0`
 - Skills:
@@ -476,19 +477,8 @@ Agent Skills used:
 1. **`ai-audit-logger`** — records AI interactions and audit information into `ai-audit-log.json`, and generates `AI_Audit_Report.md`.
 2. **`automation-test-builder`** — converts written test cases into data-driven Playwright tests: one `.spec.ts` looped over a separate `.csv`, three browser projects, and the HTML reporter stamped with the student ID.
 
-**Reuse across the three features.** `automation-test-builder` was invoked with the feature id and the SUT URLs. For FR-02 it produced the CSV, the spec, the shared `fixtures.ts` and `playwright.config.ts` with the three browser projects and the `Run by:` stamp already wired. Running it again for FR-11 and FR-12 touched `playwright.config.ts` not at all and *extended* `fixtures.ts` rather than forking it: FR-11 reused `registerFreshUser` and `apiLogin` unchanged and added `registerAndLogin`, `createOrder`, `seedOrders`, `VI_STATUS` beside them, which FR-12 then inherited. The only edit to existing FR-02 code was renaming the account prefix `fr02-` → `eshop-`, since the helper is no longer FR-02's alone.
 
-Three of the skill's quality rules are visible in the output: "never invent a selector" forced the DOM to be verified first; "never invent a URL" turned up the missing `/orders` route before any code was written; "expected values belong in the CSV" is why `expected_status` and the seeded statuses are data columns rather than literals in the spec.
-
-## 8. Bloom-AI Alignment
-
-| Level | Evidence |
-|---|---|
-| G9.2 Apply | Applied AI to generate three data-driven Playwright suites (FR-02, FR-11, FR-12): 36 CSV-driven cases, 16 assertion patterns, multi-browser configuration, stamped HTML report, with `fixtures.ts` and `playwright.config.ts` written once and reused across all three features |
-| G9.3 Analyse | Reviewed both manual test-case sets against the running system — found two redundant pairs and two unobservable expectations in FR-02, and in FR-11 a three-way redundancy, an unfalsifiable colour expectation, and a page that does not exist; identified an invalid measurement caused by shared account state and re-measured correctly; in FR-12 a wholly redundant case, two verb-only duplications and an untestable expiry condition; classified all 22 failures as genuine defects and traced each to a source line, including recognising bugs 7–10 as four symptoms of one missing authorisation layer rather than four unrelated faults |
-| G9.4 Collaborate | Iterated with AI across probing, generation, execution, and environment debugging, including rejecting a proposed browser substitution after verifying that Firefox forks lack the Juggler protocol; caught and corrected the AI's own miscount of the FR-11 consolidation arithmetic rather than accepting its summary (audit `A010`); caught the AI corrupting seeded product data while probing FR-12's write endpoints and required it to restore the fixture and isolate its probes |
-
-## 9. Summary
+## 8. Summary
 
 | Metric | Result |
 |---|---:|
@@ -501,13 +491,13 @@ Three of the skill's quality rules are visible in the output: "never invent a se
 | Browser runs | 72 of 108 (Firefox blocked, §3.4) |
 | Genuine bugs | 10 (5 critical) |
 
-## 10. Evidence & Links
+## 9. Evidence & Links
 
 - Public GitHub repository: `https://github.com/TuanNguyen716/HW04_Automation_Testing_KTPM`
 - HTML reports: `src/playwright-report/index.html`
 - Unlisted YouTube demo: `TODO`
 
-> The demo must be at least 5 minutes, narrated in Vietnamese, demonstrate one script end-to-end including multi-browser execution and HTML report, and narrate at least one AI-generated-script fix. It must show either face-cam or `whoami` + `hostname`.
+
 
 ---
 
@@ -517,20 +507,5 @@ See `AI Audit Report.md` (generated from `ai-audit-log.json` by the `ai-audit-lo
 
 # Appendix B – AI Critique
 
-`TODO — 200–300 words.` Address: (1) where AI got something wrong, biased, or incomplete; (2) why it failed to catch the issue; (3) what principle you learned about collaborating with AI.
+See `AI_Critique.md`.
 
-> Suggested material from this session: the lockout threshold was first measured on a shared account that already carried failed attempts, producing a confident but wrong reading of "locks after 2 failures" — the right answer only emerged after re-measuring on a fresh account and confirming against the source. The lesson generalises to any stateful assertion: AI will report what it observed without questioning whether the starting state was clean.
-
-# Submission Checklist
-
-- [x] Main report: Markdown + PDF
-- [x] Public GitHub repository link
-- [x] Scripts + CSV data + HTML reports *(FR-02, FR-11, FR-12)*
-- [ ] Multi-browser HTML reports *(Chrome + Edge done; Firefox blocked, §3.4)*
-- [ ] Unlisted YouTube demo link
-- [x] AI Audit Report: Markdown + PDF
-- [ ] AI Critique: Markdown + PDF
-- [ ] Git commit log text file
-- [ ] Bug reports + screenshots *(10 defects documented in §6; GitHub Issues for bugs 6–10 still to file)*
-- [ ] README.md with self-assessment + test summary
-- [ ] Agent Skills + demonstration video
