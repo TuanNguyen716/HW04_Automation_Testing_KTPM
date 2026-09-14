@@ -9,7 +9,7 @@
     "repo_path": "./src",
     "ai_tool": "Claude",
     "started_at": "2026-09-14 10:06:25 +0700",
-    "final_notes": "Entries A001-A003 cover the creation of the ai-audit-logger skill itself (2026-09-14). They were logged retrospectively at the end of that working session, so the timestamps are accurate to within a few minutes, not to the second. Prompts marked [EXCERPT] are shortened; the full text is in the Claude Code session transcript.\n\nEntries A005-A009 cover the FR-02 Playwright automation session (2026-09-14). They were logged at the end of that session from the live transcript, so the prompts are verbatim but the timestamps are the logging time, not the time each exchange occurred. A006 and A009 are deliberately left pending_review: the user has not performed a line-by-line review of the generated spec or of the rewritten report, and this log does not claim otherwise. A008 is recorded as rejected because no code change resolved it - Playwright's Firefox will not launch on this host, which is why the suite currently covers 24 of the 36 configured browser runs.\n\nEntries A013-A016 cover the FR-12 Access control session (2026-09-14). Prompts are verbatim from the live transcript; timestamps are the logging time, not the time each exchange occurred. A013 is recorded as accepted because the user explicitly accepted the consolidated 12-case set and asked for the report to be updated to match it. A014, A015 and A016 are left pending_review: the user has not performed a line-by-line review of the generated spec, of the defect analysis, or of the rewritten report sections, and this log does not claim otherwise.\n\nAll four issues attached to A014 and A016 were found by the AI itself rather than by the human, and the human_correction field says so in each case. Two of them - the unreachable teardown and the overwritten seed product - were only detectable by comparing the SUT database against its seed state, not from the suite's own pass/fail output. The corrections were applied by the AI in-session and remain unverified by the human.\n\nFR-12 execution: 12 cases x 2 usable browsers = 24 runs, 14 passed, 10 failed, all ten failures being genuine product defects. Firefox remains unlaunchable on this host (see A008), so the three-feature suite covers 72 of the 108 configured browser runs.",
+    "final_notes": "Entries A001-A003 cover the creation of the ai-audit-logger skill itself (2026-09-14). They were logged retrospectively at the end of that working session, so the timestamps are accurate to within a few minutes, not to the second. Prompts marked [EXCERPT] are shortened; the full text is in the Claude Code session transcript.\n\nEntries A005-A009 cover the FR-02 Playwright automation session (2026-09-14). They were logged at the end of that session from the live transcript, so the prompts are verbatim but the timestamps are the logging time, not the time each exchange occurred. A006 and A009 are deliberately left pending_review: the user has not performed a line-by-line review of the generated spec or of the rewritten report, and this log does not claim otherwise. A008 is recorded as rejected because no code change resolved it - Playwright's Firefox will not launch on this host, which is why the suite currently covers 24 of the 36 configured browser runs.\n\nEntries A013-A016 cover the FR-12 Access control session (2026-09-14). Prompts are verbatim from the live transcript; timestamps are the logging time, not the time each exchange occurred. A013 is recorded as accepted because the user explicitly accepted the consolidated 12-case set and asked for the report to be updated to match it. A014, A015 and A016 are left pending_review: the user has not performed a line-by-line review of the generated spec, of the defect analysis, or of the rewritten report sections, and this log does not claim otherwise.\n\nAll four issues attached to A014 and A016 were found by the AI itself rather than by the human, and the human_correction field says so in each case. Two of them - the unreachable teardown and the overwritten seed product - were only detectable by comparing the SUT database against its seed state, not from the suite's own pass/fail output. The corrections were applied by the AI in-session and remain unverified by the human.\n\nFR-12 execution: 12 cases x 2 usable browsers = 24 runs, 14 passed, 10 failed, all ten failures being genuine product defects. Firefox remains unlaunchable on this host (see A008), so the three-feature suite covers 72 of the 108 configured browser runs.\n\nEntry A017 covers the 2026-09-14 full-suite execution session. The prompt is verbatim; the ai_output is marked [EXCERPT] - the commands and assertion messages in it are copied from the terminal, the surrounding prose is condensed. No human review of the triage has been recorded, so A017 stays pending_review. The user stopped the AI's live curl probe of the lockout threshold, so FR02-TC05 (locked after 2 failures instead of 3) and FR02-TC08 (still locked after the 30s window) remain unclassified between product defect and test defect. Playwright's Firefox was reinstalled in-session (exit 0) but the suite has not been re-run on firefox, so A008 is not yet resolved.",
     "sut": "EShop SUT - backend http://localhost:3000, frontend http://localhost:5173, web admin http://localhost:5174",
     "feature": "FR-02 Login and account lockout; FR-11 Order history view (user); FR-12 Access control"
   },
@@ -431,7 +431,41 @@
           "resolution": "No change needed; the config was already correct. Had the false reading been acted on, it would have prompted an unnecessary change to a working reporter configuration."
         }
       ]
+    },
+    {
+      "category": "Debugging",
+      "purpose": "Run the full Playwright suite on the live SUT and triage the failures",
+      "feature": "FR-02 Login and account lockout; FR-11 Order history view (user); FR-12 Access control",
+      "output_lang": "text",
+      "prompt": "Hãy giúp tôi chạy test.",
+      "ai_output": "[EXCERPT - commands and results are verbatim from the terminal; prose is condensed]\n\n1. Inspected the repo, confirmed the SUT answers on http://localhost:5173 (HTTP 200).\n2. Ran: npx playwright test --reporter=list\n   Result: 53 passed, 58 failed (37 tests x 3 browser projects).\n3. All 36 firefox-project failures share one cause, not a product defect:\n   Error: browserType.launch: Failed to launch the browser process.\n   [err] *** You are running in headless mode.\n   [err] Could not find profile folder.\n   Ran: npx playwright install --force firefox (exit code 0). NOT yet re-verified - the suite has not been re-run on firefox since the reinstall.\n4. The remaining 22 failures are 11 distinct cases failing identically on chrome and edge:\n   FR02-TC02  email field does not block a malformed address (validity.valid expected true, got false path)\n   FR02-TC05  2 consecutive wrong passwords already return 403 (expected 200 - spec locks at 3)\n   FR02-TC08  login still 403 after the 30s lock window should have expired (expected 200)\n   FR02-TC11  email input has type=\"text\", spec requires type=\"email\"\n   FR02-TC12  login response body contains the plaintext password field\n   FR11-TC10  GET /api/orders/391 with another user's token returned 200 with that user's order (IDOR)\n   FR12-TC03  a non-admin JWT placed in localStorage unlocks the Admin UI (client-side-only guard)\n   FR12-TC07  GET /api/admin/users as a normal user returned 200\n   FR12-TC09  POST /api/products with no token returned 200\n   FR12-TC10  POST /api/products as a normal user returned 200\n   FR12-TC12  PUT /api/users/me let a user set its own role to \"admin\" (responded 200)\n5. Assessment given to the user: items in (4) look like genuine SUT defects, except FR02-TC05 and FR02-TC08, which the AI had not yet distinguished between a real lockout-threshold/expiry defect and a test-side problem.\n6. Proposed next step: an ad-hoc curl probe against /api/register and /api/login to confirm the lockout threshold. The user rejected this tool call before it ran.",
+      "id": "A017",
+      "timestamp": "2026-09-14 15:23:19 +0700",
+      "ai_tool": "Claude",
+      "issues": [
+        {
+          "description": "FR02-TC05 and FR02-TC08 were reported as failures without the AI being able to say whether the cause is a product defect or the test itself; the AI reached for an ad-hoc curl probe of the live SUT instead of settling the question from the existing suite evidence.",
+          "severity": "medium",
+          "type": "Incorrect assumption about SUT",
+          "why": "The two cases depend on backend lockout state (threshold and 30s expiry) that the assertion messages alone do not disambiguate, and the AI chose to generate new traffic against the SUT rather than reason from the fixtures (registerFreshUser gives each test a private account).",
+          "human_correction": "Not applied - the user stopped the probe; the question is still open.",
+          "resolution": "Open."
+        },
+        {
+          "description": "The suite was run across all three browser projects even though A008 already records Playwright's Firefox as unlaunchable on this host, so 36 of the 58 reported failures were pre-known infrastructure noise.",
+          "severity": "low",
+          "type": "Browser compatibility problem",
+          "why": "The AI did not consult the existing audit log before running, so it rediscovered a known-broken environment.",
+          "human_correction": "Not applied by the human. The AI ran 'npx playwright install --force firefox' (exit 0) in-session; it has NOT re-run the suite on firefox, so whether A008 is resolved is unverified.",
+          "resolution": "Unverified - re-run the firefox project to confirm."
+        }
+      ],
+      "status": "pending_review",
+      "human_action": "Rejected the AI's curl probe of the lockout threshold before it executed, and asked for this conversation to be audited instead.",
+      "accepted": false,
+      "modified": false,
+      "reviewed_at": "2026-09-14 15:23:31 +0700"
     }
   ],
-  "updated_at": "2026-09-14 14:31:48 +0700"
+  "updated_at": "2026-09-14 15:23:31 +0700"
 }
