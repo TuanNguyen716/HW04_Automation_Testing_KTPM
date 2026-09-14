@@ -1,0 +1,16 @@
+81f9f5a  2026-09-14 15:27  docs: AI audit report and HW04 assignment brief
+d697d4a  2026-09-14 15:27  feat: data-driven Playwright suite for FR-02, FR-11, FR-12
+8d38a00  2026-09-14 15:00  docs: update
+003fa23  2026-09-14 14:47  doc: update report
+449b26f  2026-09-14 14:45  doc: update report
+afe35a2  2026-09-14 14:38  logs
+dd5e8db  2026-09-14 14:23  feat: FR-12 test cases
+3071b6a  2026-09-14 14:06  docs
+6e33485  2026-09-14 13:55  feat: FR-11 Test cases
+ce773a0  2026-09-14 13:27  docs
+56695dc  2026-09-14 12:48  feat: FR-02 Test cases
+3d7890d  2026-09-14 12:26  feat: Automation Test Builder skills
+fee4cca  2026-09-14 11:46  feat: Playwright Agent Skill
+73909ac  2026-09-14 10:35  log
+4a14d1e  2026-09-14 10:05  feat: AI Audit Logger skills
+6a601b2  2026-09-14 09:16  feat: Initial script
