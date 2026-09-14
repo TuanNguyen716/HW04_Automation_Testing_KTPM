@@ -95,7 +95,50 @@
       "id": "A003",
       "ai_tool": "Claude",
       "issues": []
+    },
+    {
+      "category": "Agent Skill development",
+      "purpose": "Build a reusable Agent Skill that turns HW04 test cases into data-driven Playwright scripts (CSV data, >=3 assertions, 3 browsers, HTML report stamped with student name/ID)",
+      "feature": "HW04 tooling (not a SUT feature)",
+      "prompt": "Create an Agent Skill named `automation-test-builder` for my HW04 Automation Testing assignment.\n\nIts purpose is to convert test cases into maintainable Playwright automation scripts following these fixed requirements:\n\n1. Data-driven testing - Test data MUST be stored in a separate .csv file. Do NOT use hardcoded inline arrays or objects for test data. Playwright tests must load and use the CSV data. The Skill should support multiple test cases and datasets.\n2. Assertions - Generated tests must use at least 3 distinct assertion patterns, for example: toHaveURL(), toHaveText()/toContainText(), toBeVisible()/toBeHidden(), toHaveValue(), toBeEnabled()/toBeDisabled(). Choose assertions that are appropriate to the actual test scenario rather than adding meaningless assertions just to satisfy the count.\n3. Browsers - Configure Playwright to run every feature on Chrome, Edge, Firefox. Each feature must be executable on all 3 browsers.\n4. HTML reports - Use Playwright HTML Reporter. Every test run must produce an HTML report that visibly contains: `Run by: 20127420 - Nguyễn Trần Minh Tuấn`. Prefer configuring this through Playwright reporter/project metadata rather than manually modifying the generated report after execution.\n5. Input - The Skill should accept: Feature/requirement, Test cases, Test data requirements, SUT information, Existing selectors or page information when available. It should generate: Playwright .spec.js or .spec.ts, Separate .csv test-data file, Playwright configuration for Chrome, Edge and Firefox, HTML reporter configuration.\n6. Quality rules - Generated scripts should: prefer stable semantic locators (getByRole, getByLabel, etc.); avoid unnecessary hard waits such as waitForTimeout(); include meaningful assertions; avoid duplicated test logic; be reusable and maintainable; never invent selectors, URLs, or application behavior when the provided information does not support them, clearly mark missing information instead.\n7. Workflow - Test Cases -> Analyze test steps/data -> Design CSV test data -> Generate data-driven Playwright tests -> Apply >=3 assertion patterns -> Configure Chrome/Edge/Firefox -> Configure HTML Reporter with `Run by: 20127420` -> Validate the generated files -> Provide a short summary of assumptions and potential issues.\n8. Deliverables - Create the complete Agent Skill, including: SKILL.md, recommended folder structure, any necessary templates/config files, one small example using a fictional login feature, concise usage instructions.\n\nDesign it so I can reuse the same Skill for FR-01, FR-02, FR-03, etc. without modifying the Skill itself. Before presenting the final Skill, verify that it satisfies every requirement above.",
+      "ai_output": "[Files, not chat text] Created .claude/skills/automation-test-builder/ with 11 files:\n\n- SKILL.md - frontmatter (name + trigger description), Usage block, Input contract table (what to ask for, what to emit as TODO_ when absent), Output layout, 8-step workflow (analyse -> design CSV -> generate spec -> >=3 assertions -> 3 browsers -> HTML report title -> validate -> summarise assumptions), Quality rules (locator priority, no waitForTimeout, single flow per feature, tc_id in test titles), Files list.\n- templates/playwright.config.ts - projects chrome (channel 'chrome'), edge (channel 'msedge'), firefox; reporter [['html', { outputFolder: 'playwright-report', open: 'never', title: `Run by: ${RUN_BY}` }], ['list']]; baseURL from process.env.BASE_URL with TODO_BASE_URL fallback.\n- templates/fixtures.ts - zero-dependency RFC4180-ish CSV parser (quoted fields, embedded commas/newlines, \"\" escapes, CRLF, BOM), readCsv() resolved from process.cwd(), isTrue() helper, and `test` extended with an auto fixture pushing annotation { type: 'Run by', description: '20127420 - Nguyen Tran Minh Tuan' } onto every test.\n- templates/fixtures.check.spec.ts - unit check for the CSV parser, runs without a browser.\n- templates/feature.spec.ts + templates/feature.csv - per-feature skeletons; spec reads the CSV at module level and loops `for (const row of rows) test(...)`, branching on isTrue(row.expect_success).\n- examples/login/ - fictional FR-00 login: login.spec.ts, login.csv (4 datasets), README.md, and a 2-page static demo app (login.html + dashboard.html) so the example runs offline.\n\nVerification actually executed in a scratchpad copy of the project (demo app served on localhost):\n- `npx playwright test --list` -> 12 tests (4 CSV rows x 3 browser projects); proves data comes from the CSV.\n- `npx playwright test --project=chrome --project=edge` -> 10 passed.\n- CSV parser unit check passed on all 3 projects.\n- Rendered the generated HTML report with Playwright and read the DOM: .header-title = \"Run by: 20127420 - Nguyen Tran Minh Tuan\"; each test detail page shows the same string as a \"Run by\" annotation.\n- 5 assertion patterns used in the example: toBeEnabled, toHaveValue, toHaveURL, toBeVisible, toContainText.\n\nNot verified: Firefox execution. The bundled Playwright Firefox on this machine fails to launch with \"Could not find profile folder\", reproduced outside Playwright by launching the binary manually with an explicit -profile directory, and still failing after `npx playwright install --force firefox`. The firefox project is configured and enumerates correctly; only the local browser binary is broken.",
+      "output_lang": "text",
+      "status": "pending_review",
+      "file_modified": ".claude/skills/automation-test-builder/ (SKILL.md, templates/playwright.config.ts, templates/fixtures.ts, templates/fixtures.check.spec.ts, templates/feature.spec.ts, templates/feature.csv, examples/login/*)",
+      "ai_tool": "Claude (Claude Code, Opus 5)",
+      "timestamp": "2026-09-14 12:20:00 +0700",
+      "id": "A004",
+      "issues": [
+        {
+          "description": "The 'Run by: 20127420 - Nguyễn Trần Minh Tuấn' stamp was first implemented with Playwright's config.metadata, which renders nothing in the HTML report of the installed version (1.63) - the Metadata panel expands empty.",
+          "type": "Incorrect Playwright API usage",
+          "severity": "medium",
+          "why": "The AI followed the user's hint ('reporter/project metadata') from general knowledge of newer Playwright releases instead of checking what this project's version actually renders.",
+          "resolution": "Caught by the AI's own verification (rendered the generated report in a browser and read the DOM) before delivery. Replaced with the html reporter's `title` option, re-run and confirmed as .header-title in the report; the per-test 'Run by' annotation from fixtures.ts was kept as a second, independently verified location. SKILL.md now warns against config.metadata."
+        },
+        {
+          "description": "SKILL.md's validation step told the user to verify the report stamp with `grep -r \"20127420\" playwright-report/index.html`, which always returns 0 matches.",
+          "type": "Incorrect assumption about SUT",
+          "severity": "low",
+          "why": "The AI assumed the HTML report embeds its data as plain text; in this version the report payload is compressed, so the string is not greppable.",
+          "resolution": "Found while running the step; replaced with `npx playwright show-report` plus an explicit note that the stamp lives in the compressed payload and must be checked in the rendered report."
+        },
+        {
+          "description": "SKILL.md's validation step included `npx tsc --noEmit ...` although TypeScript is not a dependency of this project; running it made npx install an unrelated deprecated package (tsc@2.0.4) instead of type-checking.",
+          "type": "Implementation error",
+          "severity": "low",
+          "why": "The AI added a conventional type-check step without checking the project's devDependencies (only @playwright/test and @types/node).",
+          "resolution": "Removed the step. Playwright transpiles the specs itself and `npx playwright test --list` already catches load-time errors."
+        },
+        {
+          "description": "The CSV-parser self-check was first written as a standalone Node script (.ts, then .mts) that failed twice - 'Cannot use import statement outside a module', then 'does not provide an export named isTrue' - because the project is CommonJS while fixtures.ts uses ESM syntax.",
+          "type": "Implementation error",
+          "severity": "low",
+          "why": "The AI relied on Node 24 TypeScript type-stripping without accounting for the package's commonjs module type and the ESM/CJS named-export lexing limits.",
+          "resolution": "Abandoned the standalone runner; the check ships as templates/fixtures.check.spec.ts, run by Playwright's own transpiler - verified passing on all 3 browser projects."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-09-14 10:33:32 +0700"
+  "updated_at": "2026-09-14 12:24:06 +0700"
 }

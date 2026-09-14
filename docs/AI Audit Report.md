@@ -1,6 +1,6 @@
 # AI Audit Report
 
-> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 10:33:38 +0700.
+> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 12:24:16 +0700.
 > Every entry below was recorded at the time of the interaction; fields that were
 > never recorded are shown as _Not provided_ and are **not** reconstructed after the fact.
 
@@ -27,14 +27,15 @@ Declared by: Nguyễn Trần Minh Tuấn (20127420)
 | System under test | _Not provided_ |
 | Feature(s) under test | _Not provided_ |
 | Audit started | 2026-09-14 10:06:25 +0700 |
-| Audit last updated | 2026-09-14 10:33:32 +0700 |
-| Interactions recorded | 3 |
+| Audit last updated | 2026-09-14 12:24:06 +0700 |
+| Interactions recorded | 4 |
 
 ## 3. AI Tools Used
 
 | AI tool | Interactions | Used for |
 | --- | --- | --- |
 | Claude | 3 | Agent Skill development, Documentation |
+| Claude (Claude Code, Opus 5) | 1 | Agent Skill development |
 
 ## 4. AI Interaction Log
 
@@ -164,6 +165,75 @@ Asked Claude to log this working session into the audit log using the skill itse
 
 ---
 
+### A004 - Build a reusable Agent Skill that turns HW04 test cases into data-driven Playwright scripts (CSV data, >=3 assertions, 3 browsers, HTML report stamped with student name/ID)
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 12:20:00 +0700 |
+| AI tool | Claude (Claude Code, Opus 5) |
+| Category | Agent Skill development |
+| Feature | HW04 tooling (not a SUT feature) |
+| Test case ID | _Not provided_ |
+| File modified | .claude/skills/automation-test-builder/ (SKILL.md, templates/playwright.config.ts, templates/fixtures.ts, templates/fixtures.check.spec.ts, templates/feature.spec.ts, templates/feature.csv, examples/login/*) |
+| Commit | _Not provided_ |
+| Output accepted | _Not provided_ |
+| Output modified | _Not provided_ |
+| Related interaction | _Not provided_ |
+| Final status | pending_review |
+
+**Prompt**
+
+```
+Create an Agent Skill named `automation-test-builder` for my HW04 Automation Testing assignment.
+
+Its purpose is to convert test cases into maintainable Playwright automation scripts following these fixed requirements:
+
+1. Data-driven testing - Test data MUST be stored in a separate .csv file. Do NOT use hardcoded inline arrays or objects for test data. Playwright tests must load and use the CSV data. The Skill should support multiple test cases and datasets.
+2. Assertions - Generated tests must use at least 3 distinct assertion patterns, for example: toHaveURL(), toHaveText()/toContainText(), toBeVisible()/toBeHidden(), toHaveValue(), toBeEnabled()/toBeDisabled(). Choose assertions that are appropriate to the actual test scenario rather than adding meaningless assertions just to satisfy the count.
+3. Browsers - Configure Playwright to run every feature on Chrome, Edge, Firefox. Each feature must be executable on all 3 browsers.
+4. HTML reports - Use Playwright HTML Reporter. Every test run must produce an HTML report that visibly contains: `Run by: 20127420 - Nguyễn Trần Minh Tuấn`. Prefer configuring this through Playwright reporter/project metadata rather than manually modifying the generated report after execution.
+5. Input - The Skill should accept: Feature/requirement, Test cases, Test data requirements, SUT information, Existing selectors or page information when available. It should generate: Playwright .spec.js or .spec.ts, Separate .csv test-data file, Playwright configuration for Chrome, Edge and Firefox, HTML reporter configuration.
+6. Quality rules - Generated scripts should: prefer stable semantic locators (getByRole, getByLabel, etc.); avoid unnecessary hard waits such as waitForTimeout(); include meaningful assertions; avoid duplicated test logic; be reusable and maintainable; never invent selectors, URLs, or application behavior when the provided information does not support them, clearly mark missing information instead.
+7. Workflow - Test Cases -> Analyze test steps/data -> Design CSV test data -> Generate data-driven Playwright tests -> Apply >=3 assertion patterns -> Configure Chrome/Edge/Firefox -> Configure HTML Reporter with `Run by: 20127420` -> Validate the generated files -> Provide a short summary of assumptions and potential issues.
+8. Deliverables - Create the complete Agent Skill, including: SKILL.md, recommended folder structure, any necessary templates/config files, one small example using a fictional login feature, concise usage instructions.
+
+Design it so I can reuse the same Skill for FR-01, FR-02, FR-03, etc. without modifying the Skill itself. Before presenting the final Skill, verify that it satisfies every requirement above.
+```
+
+**AI output**
+
+```text
+[Files, not chat text] Created .claude/skills/automation-test-builder/ with 11 files:
+
+- SKILL.md - frontmatter (name + trigger description), Usage block, Input contract table (what to ask for, what to emit as TODO_ when absent), Output layout, 8-step workflow (analyse -> design CSV -> generate spec -> >=3 assertions -> 3 browsers -> HTML report title -> validate -> summarise assumptions), Quality rules (locator priority, no waitForTimeout, single flow per feature, tc_id in test titles), Files list.
+- templates/playwright.config.ts - projects chrome (channel 'chrome'), edge (channel 'msedge'), firefox; reporter [['html', { outputFolder: 'playwright-report', open: 'never', title: `Run by: ${RUN_BY}` }], ['list']]; baseURL from process.env.BASE_URL with TODO_BASE_URL fallback.
+- templates/fixtures.ts - zero-dependency RFC4180-ish CSV parser (quoted fields, embedded commas/newlines, "" escapes, CRLF, BOM), readCsv() resolved from process.cwd(), isTrue() helper, and `test` extended with an auto fixture pushing annotation { type: 'Run by', description: '20127420 - Nguyen Tran Minh Tuan' } onto every test.
+- templates/fixtures.check.spec.ts - unit check for the CSV parser, runs without a browser.
+- templates/feature.spec.ts + templates/feature.csv - per-feature skeletons; spec reads the CSV at module level and loops `for (const row of rows) test(...)`, branching on isTrue(row.expect_success).
+- examples/login/ - fictional FR-00 login: login.spec.ts, login.csv (4 datasets), README.md, and a 2-page static demo app (login.html + dashboard.html) so the example runs offline.
+
+Verification actually executed in a scratchpad copy of the project (demo app served on localhost):
+- `npx playwright test --list` -> 12 tests (4 CSV rows x 3 browser projects); proves data comes from the CSV.
+- `npx playwright test --project=chrome --project=edge` -> 10 passed.
+- CSV parser unit check passed on all 3 projects.
+- Rendered the generated HTML report with Playwright and read the DOM: .header-title = "Run by: 20127420 - Nguyen Tran Minh Tuan"; each test detail page shows the same string as a "Run by" annotation.
+- 5 assertion patterns used in the example: toBeEnabled, toHaveValue, toHaveURL, toBeVisible, toContainText.
+
+Not verified: Firefox execution. The bundled Playwright Firefox on this machine fails to launch with "Could not find profile folder", reproduced outside Playwright by launching the binary manually with an explicit -profile directory, and still failing after `npx playwright install --force firefox`. The firefox project is configured and enumerates correctly; only the local browser binary is broken.
+```
+
+**Human review**
+
+_Not provided_ (no review was recorded for this interaction)
+
+**Human decision / action**
+
+_Not provided_
+
+**Issues found in this output:** The 'Run by: 20127420 - Nguyễn Trần Minh Tuấn' stamp was fir (medium), SKILL.md's validation step told the user to verify the repor (low), SKILL.md's validation step included `npx tsc --noEmit ...` a (low), The CSV-parser self-check was first written as a standalone  (low)
+
+---
+
 ## 5. Human Review and Corrections
 
 | ID | AI proposed | Human review | Human action | Status |
@@ -172,7 +242,7 @@ Asked Claude to log this working session into the audit log using the skill itse
 | A002 | [File] docs/AI_Audit_Logger_HOWTO.md - five numbered steps (init once / log each interact… | Content is fine, but I could not tell what `A` meant - it looks like the interaction IDs … | Requested the rename; `A` was replaced with `audit` in both docs/AI_Audit_Logger_HOWTO.md… | accepted_with_modification |
 | A003 | Explained that an Agent Skill is instructions for Claude, not a program the student launc… | Answer resolved the confusion - confirmed that running the Python file manually is not re… | Asked Claude to log this working session into the audit log using the skill itself, which… | accepted |
 
-Interactions where AI output was accepted unchanged: 1 of 3.
+Interactions where AI output was accepted unchanged: 1 of 4.
 
 ## 6. AI Mistakes / Missed Issues
 
@@ -181,26 +251,30 @@ Interactions where AI output was accepted unchanged: 1 of 3.
 | A001 | argparse: --path and --no-redact were defined on the parent parser, so `audit.py log --pa… | medium | Known argparse behaviour - a parent-level option placed after a subcommand is not parsed.… | Caught by the AI's own built-in selftest on first run (not by human review); fixed by mov… | Fixed before delivery. selftest OK. Options now go after the subcommand. |
 | A002 | Confusing shell shorthand: the guide used a bare `A`, indistinguishable from the A001/A00… | low | The AI optimised the example commands for brevity without considering that the same lette… | Human asked what `A` meant and requested a rename; the shorthand is now `audit`. | Fixed in both documents. |
 | A002 | Incorrect command syntax in the guide: `audit --path hw05-audit.json` - the option must c… | medium | The AI documented the option as if it were global, contradicting its own argparse fix fro… | Not caught by human review; found by the AI while verifying the rename. Corrected to `aud… | Fixed. Would have made the reuse example fail if copied verbatim. |
+| A004 | The 'Run by: 20127420 - Nguyễn Trần Minh Tuấn' stamp was first implemented with Playwrigh… | medium | The AI followed the user's hint ('reporter/project metadata') from general knowledge of n… | _Not provided_ | Caught by the AI's own verification (rendered the generated report in a browser and read … |
+| A004 | SKILL.md's validation step told the user to verify the report stamp with `grep -r "201274… | low | The AI assumed the HTML report embeds its data as plain text; in this version the report … | _Not provided_ | Found while running the step; replaced with `npx playwright show-report` plus an explicit… |
+| A004 | SKILL.md's validation step included `npx tsc --noEmit ...` although TypeScript is not a d… | low | The AI added a conventional type-check step without checking the project's devDependencie… | _Not provided_ | Removed the step. Playwright transpiles the specs itself and `npx playwright test --list`… |
+| A004 | The CSV-parser self-check was first written as a standalone Node script (.ts, then .mts) … | low | The AI relied on Node 24 TypeScript type-stripping without accounting for the package's c… | _Not provided_ | Abandoned the standalone runner; the check ships as templates/fixtures.check.spec.ts, run… |
 
-Issues by severity: low=1, medium=2
+Issues by severity: low=4, medium=3
 
 ## 7. Summary of AI Assistance
 
 | Metric | Value |
 | --- | --- |
-| Total AI interactions | 3 |
+| Total AI interactions | 4 |
 | Interactions with human review recorded | 3 |
 | AI outputs accepted as-is | 1 |
 | AI outputs accepted after human modification | 2 |
 | AI outputs rejected | 0 |
-| Issues found during human review | 3 |
+| Issues found during human review | 7 |
 
 **AI usage by category**
 
 | Category | Interactions |
 | --- | --- |
+| Agent Skill development | 2 |
 | Documentation | 2 |
-| Agent Skill development | 1 |
 
 ## 8. Final Notes
 

@@ -1,0 +1,5 @@
+tc_id,title,email,password,expect_success,expected_url_path,expected_message
+FR-00-01,Valid credentials,test@demo.com,Test1234!,true,/dashboard.html,Welcome back
+FR-00-02,Wrong password,test@demo.com,wrong-pass,false,/login.html,Invalid email or password
+FR-00-03,Unknown account,nobody@demo.com,Test1234!,false,/login.html,Invalid email or password
+FR-00-04,Empty password,test@demo.com,,false,/login.html,Password is required

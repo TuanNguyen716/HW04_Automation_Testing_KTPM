@@ -1,0 +1,4 @@
+tc_id,title,username,password,expect_success,expected_url_path,expected_message
+FR-XX-01,Valid input,TODO,TODO,true,/TODO,TODO
+FR-XX-02,Invalid input,TODO,TODO,false,/TODO,TODO
+FR-XX-03,Empty required field,,,false,/TODO,TODO
