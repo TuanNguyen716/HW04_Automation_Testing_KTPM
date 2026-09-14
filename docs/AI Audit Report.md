@@ -1,6 +1,6 @@
 # AI Audit Report
 
-> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 12:24:16 +0700.
+> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 13:22:47 +0700.
 > Every entry below was recorded at the time of the interaction; fields that were
 > never recorded are shown as _Not provided_ and are **not** reconstructed after the fact.
 
@@ -24,17 +24,17 @@ Declared by: Nguyễn Trần Minh Tuấn (20127420)
 | Course | Kiểm thử phần mềm (KTPM) |
 | Project | HW04 - Automation Testing |
 | Repository / path | ./src |
-| System under test | _Not provided_ |
-| Feature(s) under test | _Not provided_ |
+| System under test | EShop SUT - backend http://localhost:3000, frontend http://localhost:5173 |
+| Feature(s) under test | FR-02 Login and account lockout |
 | Audit started | 2026-09-14 10:06:25 +0700 |
-| Audit last updated | 2026-09-14 12:24:06 +0700 |
-| Interactions recorded | 4 |
+| Audit last updated | 2026-09-14 13:22:41 +0700 |
+| Interactions recorded | 9 |
 
 ## 3. AI Tools Used
 
 | AI tool | Interactions | Used for |
 | --- | --- | --- |
-| Claude | 3 | Agent Skill development, Documentation |
+| Claude | 8 | Agent Skill development, Automation script generation, Bug analysis, Debugging, Documentation, Test case analysis |
 | Claude (Claude Code, Opus 5) | 1 | Agent Skill development |
 
 ## 4. AI Interaction Log
@@ -234,6 +234,279 @@ _Not provided_
 
 ---
 
+### A005 - Review the 12 manually-designed FR-02 test cases for redundancy, missing context and untestable expectations, and propose replacements.
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:22:08 +0700 |
+| AI tool | Claude |
+| Category | Test case analysis |
+| Feature | FR-02 Login and account lockout |
+| Test case ID | _Not provided_ |
+| File modified | docs/Report.md |
+| Commit | _Not provided_ |
+| Output accepted | Yes |
+| Output modified | No |
+| Related interaction | _Not provided_ |
+| Final status | accepted |
+
+**Prompt**
+
+```
+Please help me create Playwright test cases for automation testing. The system specifications are described in @"docs/System Requirements Specification.md", I have the system running and ready. I want to start with test cases for the FR-02 function, test cases I think are manually described in @docs/HW04.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.
+
+[follow-up in the same turn] the api specification in the @docs/api_specification.md file.
+```
+
+**AI output**
+
+```md
+Findings after probing the running SUT:
+
+REDUNDANT (2 slots freed)
+- TC-05 is strictly contained in TC-06: 'one wrong password' vs 'two wrong passwords, counter +1 each' share the same flow and assertion. Merged.
+- TC-08 and TC-10 are the same case: 'correct credentials during the lock window -> refused'. Identical flow and expectation. Merged.
+
+UNOBSERVABLE AS WRITTEN
+- TC-05/TC-06 'counter tang dung 1': the counter is not exposed by the UI or the API. Retested through its only observable consequence - 2 failures must not lock, the 3rd must.
+- TC-07/TC-12 expected distinct error messages per cause, but Login.jsx:18 replaces every backend error with one generic sentence. The distinction is only visible on the HTTP response status (401 vs 403), so that is what is asserted.
+
+ADDED (using the 2 freed slots)
+- FR02-TC11: email field must be type=email and password field must be type=password. FR-02 states the email type requirement explicitly and it had no coverage.
+- FR02-TC12: the login response must not return the account's password.
+
+Final set: 12 automated cases, mapping documented in docs/Report.md section 2.2.
+```
+
+**Human review**
+
+Not recorded as a line-by-line review. The user accepted the analysis in practice by asking for it to be written into the main report (docs/Report.md section 2.2) without contesting any of the four changes.
+
+**Human decision / action**
+
+Directed the consolidated 12-case set into docs/Report.md section 2.2.
+
+---
+
+### A006 - Generate a data-driven Playwright suite for FR-02: one spec looped over a separate CSV, three browser projects, HTML report stamped with the student id.
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:22:08 +0700 |
+| AI tool | Claude |
+| Category | Automation script generation |
+| Feature | FR-02 Login and account lockout |
+| Test case ID | _Not provided_ |
+| File modified | src/tests/fr-02-login-lockout.spec.ts |
+| Commit | _Not provided_ |
+| Output accepted | _Not provided_ |
+| Output modified | _Not provided_ |
+| Related interaction | _Not provided_ |
+| Final status | pending_review |
+
+**Prompt**
+
+```
+Please help me create Playwright test cases for automation testing. The system specifications are described in @"docs/System Requirements Specification.md", I have the system running and ready. I want to start with test cases for the FR-02 function, test cases I think are manually described in @docs/HW04.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.
+
+[follow-up in the same turn] the api specification in the @docs/api_specification.md file.
+```
+
+**AI output**
+
+```ts
+Generated via the automation-test-builder skill:
+  src/data/fr-02-login-lockout.csv   12 rows, one per test case
+  src/tests/fr-02-login-lockout.spec.ts
+  src/tests/fixtures.ts              CSV parser + EShop API helpers
+  src/playwright.config.ts           chrome / edge / firefox + HTML reporter
+
+No inline test data; the spec reads the CSV at module level:
+
+const rows = readCsv('data/fr-02-login-lockout.csv');
+for (const row of rows) {
+  test(`${row.tc_id} - ${row.title}`, async ({ page }) => { /* one shared flow */ });
+}
+
+Key design decision: every row that needs an account registers its own through POST /api/register, so login_attempts and locked_until always start clean. Without this the 180-second lock leaks between test cases and between browser projects and the suite cannot run in parallel.
+
+Eight assertion patterns used (requirement is 3): toBeVisible/toBeHidden, toBeEnabled, toHaveValue, toHaveAttribute, toHaveJSProperty, toHaveURL, toContainText, and toBe/toEqual/toMatch/not.toHaveProperty.
+```
+
+**Human review**
+
+PENDING - the user has not yet performed a line-by-line review of the generated spec. Two points flagged by the AI itself that need a human decision: (1) the login form's labels have no for/id association and the inputs have no name, placeholder or data-testid, so positional CSS (form input) was used instead of a semantic locator; (2) the 'check' column branches the spec into 7 assertion groups rather than a single flow.
+
+**Human decision / action**
+
+_Not provided_
+
+**Issues found in this output:** The login inputs are located by position - page.locator('for (medium)
+
+---
+
+### A007 - Measure the real lockout behaviour of the SUT and classify every failing assertion as a genuine defect or a test defect.
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:22:08 +0700 |
+| AI tool | Claude |
+| Category | Bug analysis |
+| Feature | FR-02 Login and account lockout |
+| Test case ID | _Not provided_ |
+| File modified | docs/Report.md |
+| Commit | _Not provided_ |
+| Output accepted | Yes |
+| Output modified | No |
+| Related interaction | _Not provided_ |
+| Final status | accepted |
+
+**Prompt**
+
+```
+Please help me create Playwright test cases for automation testing. The system specifications are described in @"docs/System Requirements Specification.md", I have the system running and ready. I want to start with test cases for the FR-02 function, test cases I think are manually described in @docs/HW04.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.
+
+[follow-up in the same turn] the api specification in the @docs/api_specification.md file.
+```
+
+**AI output**
+
+```md
+Measured against freshly registered accounts, then confirmed in the SUT source.
+
+Execution: 24 runs on Chrome + Edge, 14 passed, 10 failed. All 10 failures are genuine product defects, identical on both browsers.
+
+1. Account locks after 2 consecutive failures, FR-02 requires 3.
+   backend/server.js:54  const newAttempts = user.login_attempts + 2;   (should be + 1)
+2. Lockout lasts 180 seconds, FR-02 specifies 30.
+   backend/server.js:57  new Date(Date.now() + 180000)                  (should be 30000)
+3. Email field is not type=email, so HTML5 format validation never runs.
+   frontend-web/src/pages/Login.jsx:30
+4. Password field renders its value in clear text.
+   frontend-web/src/pages/Login.jsx:40
+5. CRITICAL - the login response returns the account's password to the client.
+   backend/server.js:52  res.json({ message, token, user })  serialises the whole row.
+
+Passing cases confirm real behaviour too: FR02-TC10 shows an unknown email and a wrong password return byte-identical responses, so there is no user enumeration.
+```
+
+**Human review**
+
+Not recorded as an independent verification. The user accepted the defect list by asking for it to be written into docs/Report.md section 6. The source line citations were re-checked against the SUT before writing.
+
+**Human decision / action**
+
+Directed the 5 defects into docs/Report.md section 6. GitHub Issues not yet filed.
+
+**Issues found in this output:** Reported the wrong lockout threshold. The first probe ran ag (high)
+
+---
+
+### A008 - Get a third browser running for the multi-browser requirement after Firefox failed to launch.
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:22:08 +0700 |
+| AI tool | Claude |
+| Category | Debugging |
+| Feature | FR-02 Login and account lockout |
+| Test case ID | _Not provided_ |
+| File modified | src/playwright.config.ts |
+| Commit | _Not provided_ |
+| Output accepted | No |
+| Output modified | No |
+| Related interaction | _Not provided_ |
+| Final status | rejected |
+
+**Prompt**
+
+```
+[user, after being offered the choice to swap to WebKit or try to fix Firefox] Try to fix Firefox
+
+[later] I've tried reloading Firefox - please check if it's working now. If it still doesn't work, try using the Zen browser (which I've already installed on the machine).
+
+[later] What bout floorp, can it work?
+
+[later] I just installed floorp, please check again.
+```
+
+**AI output**
+
+```bash
+Firefox is blocked by a host-environment fault, not by the test code. Two distinct failures on macOS 26 / Darwin 27, Apple Silicon:
+  firefox-1543 (FF 155, Playwright 1.63) -> 'Could not find profile folder' in headless
+  firefox-1490 (FF 141, Playwright 1.55) -> launches, then deadlocks with
+     'RenderCompositorSWGL failed mapping default framebuffer'
+
+Attempted and ruled out: reinstall; --force reinstall; disabling the sandbox; headed mode; re-signing the app bundle inside-out after finding its code signature invalid (Sealed Resources=none, which caused macOS to SIGKILL Firefox's child processes); pinning Playwright 1.55; disabling WebRender and the GPU process via prefs and env vars.
+
+Firefox forks are NOT a substitute. Playwright drives Firefox over the Juggler protocol, which exists only in Playwright's patched builds:
+  unzip -l Zen.app/Contents/Resources/omni.ja    | grep -ci juggler  -> 0
+  unzip -l Floorp.app/Contents/Resources/omni.ja | grep -ci juggler  -> 0
+  unzip -l <playwright firefox>/omni.ja          | grep -ci juggler  -> 19
+Floorp was additionally confirmed by a real launch attempt, which failed. Playwright 1.63 exposes no public WebDriver BiDi browser type (only chromium/firefox/webkit), so no stock Firefox build can be driven.
+
+WebKit was verified working on this machine and is available as a substitute. Docker is installed but the daemon was not running; the official mcr.microsoft.com/playwright Linux image has neither fault.
+```
+
+**Human review**
+
+The user rejected the AI's first recommendation (swap Firefox for WebKit) and directed it to fix Firefox instead, then proposed Zen and Floorp as alternatives. Both proposals were investigated and shown to be structurally impossible rather than merely unconfigured.
+
+**Human decision / action**
+
+Deferred Firefox ('I'll figure out how to get Firefox working later') and redirected the session back to FR-02. The firefox project was kept in playwright.config.ts; the suite currently covers 24 of 36 runs.
+
+**Reason for modification**
+
+No code change resolved it - the fault is in the host environment's Firefox build, outside the test suite.
+
+---
+
+### A009 - Restructure the main report against the template and fill in the FR-02 automation sections.
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 13:22:08 +0700 |
+| AI tool | Claude |
+| Category | Documentation |
+| Feature | FR-02 Login and account lockout |
+| Test case ID | _Not provided_ |
+| File modified | docs/Report.md |
+| Commit | _Not provided_ |
+| Output accepted | _Not provided_ |
+| Output modified | _Not provided_ |
+| Related interaction | _Not provided_ |
+| Final status | pending_review |
+
+**Prompt**
+
+```
+Alright, please update my report at `Report.md`. It currently contains the manual test cases for FR-20 that I devised, but lacks the automated test cases you created with Playwright; please revise the report to make it complete. You can refer to `Main_Report_Template.md` for guidance.
+```
+
+**AI output**
+
+```md
+Rewrote docs/Report.md against docs/Main_Report_Template.md, preserving the existing header, feature selection, manual test-case table and ASCII workflow diagram.
+
+Added: section 2.2 automated test cases mapped to the manual TC ids plus the consolidation rationale; 3.2 data-driven design and CSV columns; 3.3 the 8 assertion patterns; 3.4 multi-browser config with the Firefox blocker documented; 3.5 HTML report config and the two places the 'Run by:' stamp is set; 4 human review and gap analysis; 5 execution results per browser and per test case; 6 the 5 defects with severity and source line; 7-10 and the appendices.
+
+Source line citations were verified against the SUT before writing: server.js:52/54/57 and Login.jsx:18/30/40.
+```
+
+**Human review**
+
+Not yet reviewed. The AI flagged two items for the user's attention: (1) the section 4 'Human Review & Gap Analysis' table was written from what happened in the session, but several entries are the AI catching its own errors rather than the user reviewing AI output, and the assignment asks specifically what the student caught - so attribution needs rewriting in the user's own voice; (2) section 3.4 reports 24 of 36 browser runs and must be updated if Firefox is fixed.
+
+**Human decision / action**
+
+_Not provided_
+
+**Issues found in this output:** The 'Human Review & Gap Analysis' table written into docs/Re (medium)
+
+---
+
 ## 5. Human Review and Corrections
 
 | ID | AI proposed | Human review | Human action | Status |
@@ -241,8 +514,13 @@ _Not provided_
 | A001 | [Files, not chat text] Produced .claude/skills/ai-audit-logger/ containing: SKILL.md (fro… | Structure and behaviour accepted. Two gaps surfaced while actually using it: (1) the skil… | Accepted the skill. Ran `audit init` with my real name (Nguyen Tran Minh Tuan) and MSSV 2… | accepted_with_modification |
 | A002 | [File] docs/AI_Audit_Logger_HOWTO.md - five numbered steps (init once / log each interact… | Content is fine, but I could not tell what `A` meant - it looks like the interaction IDs … | Requested the rename; `A` was replaced with `audit` in both docs/AI_Audit_Logger_HOWTO.md… | accepted_with_modification |
 | A003 | Explained that an Agent Skill is instructions for Claude, not a program the student launc… | Answer resolved the confusion - confirmed that running the Python file manually is not re… | Asked Claude to log this working session into the audit log using the skill itself, which… | accepted |
+| A005 | Findings after probing the running SUT: REDUNDANT (2 slots freed) - TC-05 is strictly con… | Not recorded as a line-by-line review. The user accepted the analysis in practice by aski… | Directed the consolidated 12-case set into docs/Report.md section 2.2. | accepted |
+| A006 | Generated via the automation-test-builder skill: src/data/fr-02-login-lockout.csv 12 rows… | PENDING - the user has not yet performed a line-by-line review of the generated spec. Two… | _Not provided_ | pending_review |
+| A007 | Measured against freshly registered accounts, then confirmed in the SUT source. Execution… | Not recorded as an independent verification. The user accepted the defect list by asking … | Directed the 5 defects into docs/Report.md section 6. GitHub Issues not yet filed. | accepted |
+| A008 | Firefox is blocked by a host-environment fault, not by the test code. Two distinct failur… | The user rejected the AI's first recommendation (swap Firefox for WebKit) and directed it… | Deferred Firefox ('I'll figure out how to get Firefox working later') and redirected the … | rejected |
+| A009 | Rewrote docs/Report.md against docs/Main_Report_Template.md, preserving the existing head… | Not yet reviewed. The AI flagged two items for the user's attention: (1) the section 4 'H… | _Not provided_ | pending_review |
 
-Interactions where AI output was accepted unchanged: 1 of 4.
+Interactions where AI output was accepted unchanged: 3 of 9.
 
 ## 6. AI Mistakes / Missed Issues
 
@@ -255,30 +533,39 @@ Interactions where AI output was accepted unchanged: 1 of 4.
 | A004 | SKILL.md's validation step told the user to verify the report stamp with `grep -r "201274… | low | The AI assumed the HTML report embeds its data as plain text; in this version the report … | _Not provided_ | Found while running the step; replaced with `npx playwright show-report` plus an explicit… |
 | A004 | SKILL.md's validation step included `npx tsc --noEmit ...` although TypeScript is not a d… | low | The AI added a conventional type-check step without checking the project's devDependencie… | _Not provided_ | Removed the step. Playwright transpiles the specs itself and `npx playwright test --list`… |
 | A004 | The CSV-parser self-check was first written as a standalone Node script (.ts, then .mts) … | low | The AI relied on Node 24 TypeScript type-stripping without accounting for the package's c… | _Not provided_ | Abandoned the standalone runner; the check ships as templates/fixtures.check.spec.ts, run… |
+| A006 | The login inputs are located by position - page.locator('form input').nth(0) and .nth(1) … | medium | Not an AI shortcut: the SUT's form genuinely offers nothing better. The labels have no fo… | None applied. The constraint and its reason are documented in the spec file header so the… | Accepted as a known limitation. Adding or reordering a field in Login.jsx will break thes… |
+| A007 | Reported the wrong lockout threshold. The first probe ran against the shared test@eshop.c… | high | The account already carried a failed attempt from an earlier UI interaction in the same s… | Re-measured on a freshly registered account via POST /api/register, which showed the thre… | Fixed. The suite now registers a private account per test row so every measurement starts… |
+| A009 | The 'Human Review & Gap Analysis' table written into docs/Report.md section 4 presents AI… | medium | The AI populated a section whose entire purpose is to record what the student caught in A… | Not yet applied - flagged to the user at delivery, with the recommendation to rewrite tho… | Open. Section 4 of docs/Report.md must not be submitted as-is. |
 
-Issues by severity: low=4, medium=3
+Issues by severity: high=1, low=4, medium=5
 
 ## 7. Summary of AI Assistance
 
 | Metric | Value |
 | --- | --- |
-| Total AI interactions | 4 |
-| Interactions with human review recorded | 3 |
-| AI outputs accepted as-is | 1 |
+| Total AI interactions | 9 |
+| Interactions with human review recorded | 8 |
+| AI outputs accepted as-is | 3 |
 | AI outputs accepted after human modification | 2 |
-| AI outputs rejected | 0 |
-| Issues found during human review | 7 |
+| AI outputs rejected | 1 |
+| Issues found during human review | 10 |
 
 **AI usage by category**
 
 | Category | Interactions |
 | --- | --- |
+| Documentation | 3 |
 | Agent Skill development | 2 |
-| Documentation | 2 |
+| Automation script generation | 1 |
+| Bug analysis | 1 |
+| Debugging | 1 |
+| Test case analysis | 1 |
 
 ## 8. Final Notes
 
 Entries A001-A003 cover the creation of the ai-audit-logger skill itself (2026-09-14). They were logged retrospectively at the end of that working session, so the timestamps are accurate to within a few minutes, not to the second. Prompts marked [EXCERPT] are shortened; the full text is in the Claude Code session transcript.
+
+Entries A005-A009 cover the FR-02 Playwright automation session (2026-09-14). They were logged at the end of that session from the live transcript, so the prompts are verbatim but the timestamps are the logging time, not the time each exchange occurred. A006 and A009 are deliberately left pending_review: the user has not performed a line-by-line review of the generated spec or of the rewritten report, and this log does not claim otherwise. A008 is recorded as rejected because no code change resolved it - Playwright's Firefox will not launch on this host, which is why the suite currently covers 24 of the 36 configured browser runs.
 
 **Scope of this report.** It reproduces only what was recorded in `ai-audit-log.json`. It is evidence of the
 AI-use process, not a guarantee that the assignment's audit requirements are met - the student
