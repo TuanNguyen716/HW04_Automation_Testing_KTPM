@@ -241,14 +241,7 @@ The human owns feature selection, test-case design, and the verdict on every fai
 - Spec files: `src/tests/fr-02-login-lockout.spec.ts`, `src/tests/fr-11-order-history.spec.ts`, `src/tests/fr-12-access-control.spec.ts`
 - Shared helpers: `src/tests/fixtures.ts` (one file, reused by all three features)
 
-The spec contains **no inline test data**. It reads the CSV at module level and generates one `test()` per row:
-
-```ts
-const rows = readCsv('data/fr-02-login-lockout.csv');
-for (const row of rows) {
-  test(`${row.tc_id} - ${row.title}`, async ({ page }) => { /* one shared flow */ });
-}
-```
+The spec contains **no inline test data**. At module level it reads the CSV and generates one `test()` per row, all rows sharing a single flow — so adding a test case means adding a line to the CSV, never editing the spec.
 
 All three CSVs share the same shape — `tc_id` and `title` name the test so report rows map back to this document, `check` selects the assertion group, and the `expect_*` / `expected_*` columns hold the expected outcome. The rest are the inputs each feature needs:
 
@@ -262,35 +255,11 @@ Putting the credential kind in a data column is what keeps FR-12 to one flow: ad
 
 **Test isolation.** Every row that needs an account registers its own via `POST /api/register`, so `login_attempts` and `locked_until` always start clean. Without this the 180-second lock leaks between test cases and between browser projects, and the suite cannot run in parallel. This is the single most important design decision in the suite.
 
-FR-12 adds a second obligation on top of isolation: **teardown**. Because its negative cases assert that a write is *refused*, every row where the product wrongly allows the write leaves a real row behind in the SUT. Each such row is therefore recorded the moment it is created — before the assertion that will throw — and removed in a `finally` block, along with the escalated account from FR12-TC12, which would otherwise leave a genuine extra admin in the database for every run:
-
-```ts
-const created = await apiCall('POST', path, token, body);
-// Record any row that slipped through BEFORE asserting: the assertion below
-// throws on a leak, and the teardown can only remove what was tracked by then.
-if (created.body?.id) strays.push({ path, id: created.body.id });
-expect(DENIED, `POST ${path} as "${kind}" must be rejected`).toContain(created.status);
-```
-
-This ordering was a real bug in the first generated version, where the `push` sat *after* the assertion and so never ran — see §4. Verified: products, categories and admin accounts all return to their seed counts after a full run.
+FR-12 adds a second obligation on top of isolation: **teardown**. Its negative cases assert that a write is *refused*, so every row where the product wrongly allows the write leaves real data behind in the SUT. Each such row is therefore recorded the moment it is created — deliberately *before* the assertion that will throw — and deleted in a `finally` block, together with the self-promoted account from FR12-TC12, which would otherwise leave a genuine extra admin in the database after every run. The first generated version put that bookkeeping *after* the assertion, so cleanup could only ever run when there was nothing to clean (§4). Verified: products, categories and admin accounts all return to their seed counts after a full run.
 
 The same rule carries FR-11: each row registers its own user and seeds that user's orders through `POST /api/checkout` plus admin status transitions, so order ids never collide across rows or across browser projects, and the isolation cases get a genuinely foreign second user to test against.
 
-**Locale-safe expectations.** `Profile.jsx` renders the date with `toLocaleDateString()` and the total with `toLocaleString()`, i.e. in the *browser's* locale — so `1,234,567 ₫` on this machine could be `1.234.567 ₫` on another. Hard-coding either string would produce a suite that passes only on the machine it was written on. The expected value is instead derived inside the page from the backend record:
-
-```ts
-const [expectedDate, expectedAmount] = await page.evaluate(
-  ([createdAt, total]) => [
-    new Date(createdAt).toLocaleDateString(),
-    `${Number(total).toLocaleString()} ₫`,
-  ],
-  [order.created_at, order.total_amount] as const,
-);
-await expect(cells.nth(1)).toHaveText(expectedDate);
-await expect(cells.nth(2)).toHaveText(expectedAmount);
-```
-
-This still binds the cell to *that order's* real `created_at` and `total_amount` — a cell showing another order's date, or a hardcoded placeholder, fails. The currency **format** requirement is then asserted separately and locale-agnostically by FR11-TC05, with a regex that accepts any thousands separator but requires grouping and the `₫` sign.
+**Locale-safe expectations.** The profile page formats the order date and total in the *browser's* locale, so `1,234,567 ₫` on one machine is `1.234.567 ₫` on another. Hard-coding either literal would give a suite that passes only where it was written. Instead the expected strings are computed inside the page from the backend record itself, using the same locale formatting the page uses — the cell is still bound to *that order's* real date and total, so another order's date or a hardcoded placeholder fails. The currency **format** requirement is asserted separately and locale-agnostically by FR11-TC05, with a pattern that accepts any thousands separator but requires grouping and the `₫` sign.
 
 ### 3.3 Assertion patterns
 
@@ -330,15 +299,7 @@ FR-12 adds two more, and reuses the rest:
 
 ### 3.4 Multi-browser execution
 
-Configured in `src/playwright.config.ts`:
-
-```ts
-projects: [
-  { name: 'chrome',  use: { ...devices['Desktop Chrome'], channel: 'chrome'  } },
-  { name: 'edge',    use: { ...devices['Desktop Edge'],   channel: 'msedge'  } },
-  { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-]
-```
+`src/playwright.config.ts` declares three browser projects — `chrome` and `edge` on their real installed channels, plus `firefox` — so every spec runs once per project.
 
 - Chrome: ✓ 12 runs per feature (FR-02, FR-11, FR-12)
 - Edge: ✓ 12 runs per feature (FR-02, FR-11, FR-12)
@@ -354,18 +315,7 @@ projects: [
 - Report path: `src/playwright-report/index.html`
 - Open with: `npm run report`
 
-The stamp is config-driven, never hand-edited into the generated report. It is set in two places so it appears both in the report header and on every individual test:
-
-```ts
-// playwright.config.ts
-reporter: [['html', { outputFolder: 'playwright-report', open: 'never',
-                      title: `Run by: ${RUN_BY}` }], ['list']],
-```
-
-```ts
-// tests/fixtures.ts — auto fixture, stamps every test's detail page
-testInfo.annotations.push({ type: 'Run by', description: RUN_BY });
-```
+The stamp is config-driven, never hand-edited into the generated report. It is set in two places so it appears both in the report header and on every individual test: the HTML reporter's `title` option in `playwright.config.ts`, and an auto-fixture in `fixtures.ts` that pushes a `Run by` annotation onto each test.
 
 Verified in the rendered report: the `.header-title` element and the browser tab title both read `Run by: 20127420 - Nguyễn Trần Minh Tuấn`, and the summary bar repeats it. `config.metadata` is deliberately not used — Playwright 1.63's HTML report leaves custom metadata keys unrendered.
 
@@ -501,30 +451,9 @@ Ten distinct defects, each confirmed in the source of the system under test.
 
 Bugs 1 and 2 are the two defects seeded in the lockout logic; both are single-token errors in `server.js` and neither is visible from the UI, which is why FR02-TC05 and FR02-TC08 assert the HTTP status rather than on-screen text.
 
-**Bug 6** is a broken-object-level-authorisation flaw (OWASP API1), invisible from the frontend, which only ever calls the correctly scoped `/api/orders/my-orders`. Order ids are sequential integers, so enumerating every order in the system needs a loop and no credentials. It was found only because FR11-TC10 asserts the ownership rule at the API; the UI-level equivalent, FR11-TC09, passes. Fix:
+**Bug 6** is a broken-object-level-authorisation flaw (OWASP API1), invisible from the frontend, which only ever calls the correctly scoped `/api/orders/my-orders`. Order ids are sequential integers, so enumerating every order in the system needs a loop and no credentials. It was found only because FR11-TC10 asserts the ownership rule at the API; the UI-level equivalent, FR11-TC09, passes. The fix is two-fold: put the `authenticateToken` middleware on the route, and add `AND user_id = ?` to the lookup so an order can only be read by its owner.
 
-```js
-app.get("/api/orders/:id", authenticateToken, (req, res) => {
-  db.get("SELECT * FROM orders WHERE id = ? AND user_id = ?",
-    [req.params.id, req.user.id], (err, order) => {
-      if (!order) return res.status(404).json({ error: "Order not found" });
-      res.json(order);
-    });
-});
-```
-
-**Bugs 7–10 are one architectural failure seen from four angles.** The system authenticates and does not authorise: `authenticateToken` answers "is this a real token?" and no route asks "is this caller allowed?". Bug 9 is the root cause, bug 8 the same gap with authentication missing too, bug 10 the frontend compensating in the one place that cannot be trusted. Bug 7 is the worst by exploitability — bugs 8–10 need an attacker to know which endpoints are unguarded, while bug 7 turns any registered account into a legitimate admin. The minimal fix is one middleware plus one field removal:
-
-```js
-const requireAdmin = (req, res, next) =>
-  req.user?.role === "admin" ? next() : res.status(403).json({ error: "Forbidden" });
-
-// every /api/admin/* route and every data-affecting write:
-app.post("/api/products", authenticateToken, requireAdmin, (req, res) => { … });
-
-// and in PUT /api/users/me — never read `role` from the request body:
-const { name, shipping_address, phone } = req.body;
-```
+**Bugs 7–10 are one architectural failure seen from four angles.** The system authenticates and does not authorise: `authenticateToken` answers "is this a real token?" and no route asks "is this caller allowed?". Bug 9 is the root cause, bug 8 the same gap with authentication missing too, bug 10 the frontend compensating in the one place that cannot be trusted. Bug 7 is the worst by exploitability — bugs 8–10 need an attacker to know which endpoints are unguarded, while bug 7 turns any registered account into a legitimate admin. The minimal fix is one middleware plus one field removal: a `requireAdmin` guard that returns `403` unless `req.user.role === "admin"`, applied to every `/api/admin/*` route and every data-affecting write alongside `authenticateToken`; and `PUT /api/users/me` must stop reading `role` from the request body at all.
 
 **Related observations (not counted as separate defects):** the login page heading reads `Đăng Ký` ("Register") instead of `Đăng Nhập`, and the email field is labelled `Username`. Both are in `Login.jsx` and are cosmetic/labelling faults outside the FR-02 assertions.
 
