@@ -1,6 +1,6 @@
 # AI Audit Report
 
-> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 14:00:16 +0700.
+> Generated from `ai-audit-log.json` by the `ai-audit-logger` Agent Skill on 2026-09-14 14:31:56 +0700.
 > Every entry below was recorded at the time of the interaction; fields that were
 > never recorded are shown as _Not provided_ and are **not** reconstructed after the fact.
 
@@ -24,17 +24,17 @@ Declared by: Nguyễn Trần Minh Tuấn (20127420)
 | Course | Kiểm thử phần mềm (KTPM) |
 | Project | HW04 - Automation Testing |
 | Repository / path | ./src |
-| System under test | EShop SUT - backend http://localhost:3000, frontend http://localhost:5173 |
-| Feature(s) under test | FR-02 Login and account lockout |
+| System under test | EShop SUT - backend http://localhost:3000, frontend http://localhost:5173, web admin http://localhost:5174 |
+| Feature(s) under test | FR-02 Login and account lockout; FR-11 Order history view (user); FR-12 Access control |
 | Audit started | 2026-09-14 10:06:25 +0700 |
-| Audit last updated | 2026-09-14 14:00:10 +0700 |
-| Interactions recorded | 12 |
+| Audit last updated | 2026-09-14 14:31:48 +0700 |
+| Interactions recorded | 16 |
 
 ## 3. AI Tools Used
 
 | AI tool | Interactions | Used for |
 | --- | --- | --- |
-| Claude | 11 | Agent Skill development, Automation script generation, Bug analysis, Debugging, Documentation, Test case analysis |
+| Claude | 15 | Agent Skill development, Automation script generation, Bug analysis, Debugging, Documentation, Test case analysis |
 | Claude (Claude Code, Opus 5) | 1 | Agent Skill development |
 
 ## 4. AI Interaction Log
@@ -553,6 +553,8 @@ Accepted the consolidation and the 12-case set as proposed, and directed that do
 
 Approved the set; asked for the audit log and the report section to be written from it.
 
+**Issues found in this output:** Mis-stated the consolidation accounting: claimed merging the (medium)
+
 ---
 
 ### A011 - Generate the data-driven Playwright suite for FR-11: a 12-row CSV, one spec looped over it, and reusable order-seeding helpers in the shared fixtures
@@ -674,6 +676,215 @@ Kept FR11-TC10 asserting the correct behaviour so the suite stays red until fixe
 
 ---
 
+### A013 - Review the 12 draft FR-12 access-control test cases for redundancy, missing context and untestability, then propose the final automated set
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 14:30:33 +0700 |
+| AI tool | Claude |
+| Category | Test case analysis |
+| Feature | FR-12 Access control |
+| Test case ID | _Not provided_ |
+| File modified | docs/FR-12.md |
+| Commit | _Not provided_ |
+| Output accepted | Yes |
+| Output modified | No |
+| Related interaction | _Not provided_ |
+| Final status | accepted |
+
+**Prompt**
+
+```
+Please help me create Playwright test cases for automation testing. The system specifications are described in @"docs/System Requirements Specification.md", the api specification in @"docs/api_specification.md", I have the system running and ready. I want to start with test cases for the FR-12 Access control  function, test cases I think are described in @docs/FR-12.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.
+```
+
+**AI output**
+
+```md
+[EXCERPT] Findings on the draft set:
+
+- TC-12 ('Admin thuc hien cac thao tac quan tri') is wholly redundant - it is the union of TC-06, TC-08 and TC-10, and has no independent oracle. Dropped.
+- TC-07 + TC-09 + TC-11 (user create / edit / delete) are one flow under three HTTP verbs. Merged into FR12-TC10, which walks POST -> PUT -> DELETE and re-reads the record after each to prove the refusal protected the data. 3 cases -> 1.
+- TC-08 + TC-10 (admin create / edit) merged into FR12-TC11 as a full create -> read-back -> update -> delete lifecycle.
+- TC-04 ('JWT gia/sai') conflates two different failures; split into FR12-TC05 (wrong signature) and FR12-TC06 (payload edited, original signature kept).
+
+Four freed slots spent on paths the draft could not reach:
+- FR12-TC03 admin UI guard bypass via localStorage
+- FR12-TC06 tampered JWT payload
+- FR12-TC09 fully anonymous writes to /api/products
+- FR12-TC12 privilege escalation via PUT /api/users/me {"role":"admin"}
+
+Untestable and deliberately excluded: token expiry. backend/server.js:51 signs jwt.sign({id, role}, SECRET_KEY) with no exp claim and no expiresIn, so tokens issued by this build never expire. No input could make such a case fail.
+```
+
+**Human review**
+
+Accepted the consolidated 12-case set, including the four replacement cases and the exclusion of the token-expiry case, and instructed that docs/Report.md be updated to match it.
+
+**Human decision / action**
+
+Replied 'Yes, please edit my docs/Report.md matching the use cases you have written'.
+
+---
+
+### A014 - Generate the data-driven FR-12 Playwright suite (spec + CSV + shared helpers) from the reviewed test cases
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 14:30:59 +0700 |
+| AI tool | Claude |
+| Category | Automation script generation |
+| Feature | FR-12 Access control |
+| Test case ID | FR12-TC01..FR12-TC12 |
+| File modified | src/tests/fr-12-access-control.spec.ts, src/data/fr-12-access-control.csv, src/tests/fixtures.ts, src/package.json |
+| Commit | _Not provided_ |
+| Output accepted | _Not provided_ |
+| Output modified | _Not provided_ |
+| Related interaction | _Not provided_ |
+| Final status | pending_review |
+
+**Prompt**
+
+```
+(continuation of A013 - same user turn) Generate the Playwright automation for the agreed FR-12 set, following the project's existing data-driven convention: one spec looped over a separate CSV, shared helpers in fixtures.ts, three browser projects, HTML report stamped with the student id.
+```
+
+**AI output**
+
+```ts
+[EXCERPT] fixtures.ts extended with an FR-12 section: ADMIN_BASE (the Web Admin app on :5174, separate from the storefront baseURL), a TokenKind union ('none'|'invalid'|'tampered'|'user'|'admin'), tamperRole() which edits the JWT payload and keeps the original signature, FORGED_TOKEN, tokenFor(), apiCall(), DENIED = [401,403], and product fixture helpers.
+
+CSV shaped as a credential x resource matrix:
+
+  tc_id,title,check,method,paths,token,expect_status,expected_message
+  FR12-TC07,User dung token cua minh goi API Admin thi bi tu choi 403,api_denied,GET,/api/admin/users|/api/admin/orders|/api/coupons,user,403,
+
+Spec branches on row.check and reuses one flow:
+
+  const rows = readCsv('data/fr-12-access-control.csv');
+  for (const row of rows) {
+    test(`${row.tc_id} - ${row.title}`, async ({ page }) => {
+      const user = await registerAndLogin(row.tc_id.toLowerCase());
+      const token = await tokenFor(row.token as TokenKind, user);
+      ...
+    });
+  }
+
+Added npm script test:fr12 matching the existing test:fr02 / test:fr11 convention.
+
+Result: 12 cases x 3 browser projects listed; on Chrome and Edge 7 passed / 5 failed, the 5 failures being the access-control defects recorded in A015.
+```
+
+**Human review**
+
+_Not provided_ (no review was recorded for this interaction)
+
+**Human decision / action**
+
+_Not provided_
+
+**Issues found in this output:** Teardown could never run: the generated write_denied flow re (high), Exploratory probing corrupted seeded SUT data: PUT /api/prod (high)
+
+---
+
+### A015 - Trace each FR-12 failure to a source line in the SUT and determine whether it is a product defect or a test defect
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 14:31:28 +0700 |
+| AI tool | Claude |
+| Category | Bug analysis |
+| Feature | FR-12 Access control |
+| Test case ID | FR12-TC03, FR12-TC07, FR12-TC09, FR12-TC10, FR12-TC12 |
+| File modified | docs/FR-12.md, docs/Report.md |
+| Commit | _Not provided_ |
+| Output accepted | _Not provided_ |
+| Output modified | _Not provided_ |
+| Related interaction | _Not provided_ |
+| Final status | pending_review |
+
+**Prompt**
+
+```
+(continuation of A013 - same user turn) Determine for each failing FR-12 case whether it is a genuine product defect, and cite the responsible source line.
+```
+
+**AI output**
+
+```js
+[EXCERPT] Four defects, all confirmed in the SUT source and reproduced by direct API calls before any test was written.
+
+Bug 9 (root cause) - no role check exists anywhere. backend/server.js:100-110:
+  const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    if (token == null) return res.status(401).json({ error: "Unauthorized" });
+    jwt.verify(token, SECRET_KEY, (err, user) => {
+      if (err) return res.status(403).json({ error: "Forbidden" });
+      req.user = user; next();
+    });
+  };
+It verifies the signature and never consults req.user.role; no route does either.
+
+Bug 8 - server.js:167,179,191 register POST/PUT/DELETE /api/products with no middleware at all, so anonymous callers write.
+
+Bug 7 (worst by exploitability) - server.js:119-126 destructures role from req.body and applies it, so a user self-promotes; the next login mints a genuine role=admin JWT. Verified end to end on a throwaway account.
+
+Bug 10 - frontend-admin/src/App.jsx:65 puts the role check inside handleLogin only; App.jsx:188 gates the dashboard on if (!token), so a user JWT written to localStorage unlocks the whole Admin UI.
+
+These are one architectural failure seen from four angles: the system authenticates and does not authorise. The seven passing cases support that reading - the signature path (TC-05, TC-06) and the admin operations (TC-01, TC-08, TC-11) are all correct, which localises the fault to the missing role check rather than a broken auth layer.
+```
+
+**Human review**
+
+_Not provided_ (no review was recorded for this interaction)
+
+**Human decision / action**
+
+_Not provided_
+
+---
+
+### A016 - Propagate the FR-12 results through docs/Report.md - test case sections, automation approach, execution results, bug table and summary metrics
+
+| Field | Value |
+| --- | --- |
+| Date / time | 2026-09-14 14:31:28 +0700 |
+| AI tool | Claude |
+| Category | Documentation |
+| Feature | FR-12 Access control |
+| Test case ID | _Not provided_ |
+| File modified | docs/Report.md, docs/FR-12.md |
+| Commit | _Not provided_ |
+| Output accepted | _Not provided_ |
+| Output modified | _Not provided_ |
+| Related interaction | _Not provided_ |
+| Final status | pending_review |
+
+**Prompt**
+
+```
+Yes, please edit my @../docs/Report.md matching the use cases you have written
+```
+
+**AI output**
+
+```md
+[EXCERPT] Added sections 2.5 (FR-12 manual cases as drafted) and 2.6 (automated set + consolidation rationale); extended 3.2 with the FR-12 CSV column table and a teardown subsection; added four assertion patterns to 3.3; updated 3.4 browser runs from 48 to 72 of 108; added test:fr12 to 3.5; added three review rows to section 4; added the FR-12 results table and per-case breakdown to section 5 (combined 72 runs, 50 passed, 22 failed); added bugs 7-10 with source citations plus the shared root-cause analysis and minimal fix to section 6; updated sections 8 and 9 (10 bugs, 5 critical).
+```
+
+**Human review**
+
+_Not provided_ (no review was recorded for this interaction)
+
+**Human decision / action**
+
+_Not provided_
+
+**Issues found in this output:** An edit to docs/Report.md deleted the entire 'Submission Che (medium), Falsely reported that the HTML report's 'Run by' stamp was m (low)
+
+---
+
 ## 5. Human Review and Corrections
 
 | ID | AI proposed | Human review | Human action | Status |
@@ -689,8 +900,9 @@ Kept FR11-TC10 asserting the correct behaviour so the suite stays red until fixe
 | A010 | ## Review of your FR-11 list **Redundant - merged.** TC-04/05/06 ("ma don correct", "ngay… | Accepted the consolidation and the 12-case set as proposed, and directed that docs/Report… | Approved the set; asked for the audit log and the report section to be written from it. | accepted |
 | A011 | data/fr-11-order-history.csv (12 rows): tc_id,title,check,statuses,amounts,other_user_sta… | Accepted. Suite executed against the live SUT: 11 of 12 pass on Chrome and on Edge; the s… | Kept the generated files; added npm run test:fr11 pinned to Chrome + Edge. | accepted |
 | A012 | FR11-TC10 fails: GET /api/orders/30 with another user's token returned 200 {"id":30,"user… | Confirmed as a genuine product defect (broken object-level authorisation / IDOR), not a t… | Kept FR11-TC10 asserting the correct behaviour so the suite stays red until fixed; record… | accepted |
+| A013 | [EXCERPT] Findings on the draft set: - TC-12 ('Admin thuc hien cac thao tac quan tri') is… | Accepted the consolidated 12-case set, including the four replacement cases and the exclu… | Replied 'Yes, please edit my docs/Report.md matching the use cases you have written'. | accepted |
 
-Interactions where AI output was accepted unchanged: 6 of 12.
+Interactions where AI output was accepted unchanged: 7 of 16.
 
 ## 6. AI Mistakes / Missed Issues
 
@@ -706,31 +918,36 @@ Interactions where AI output was accepted unchanged: 6 of 12.
 | A006 | The login inputs are located by position - page.locator('form input').nth(0) and .nth(1) … | medium | Not an AI shortcut: the SUT's form genuinely offers nothing better. The labels have no fo… | None applied. The constraint and its reason are documented in the spec file header so the… | Accepted as a known limitation. Adding or reordering a field in Login.jsx will break thes… |
 | A007 | Reported the wrong lockout threshold. The first probe ran against the shared test@eshop.c… | high | The account already carried a failed attempt from an earlier UI interaction in the same s… | Re-measured on a freshly registered account via POST /api/register, which showed the thre… | Fixed. The suite now registers a private account per test row so every measurement starts… |
 | A009 | The 'Human Review & Gap Analysis' table written into docs/Report.md section 4 presents AI… | medium | The AI populated a section whose entire purpose is to record what the student caught in A… | Not yet applied - flagged to the user at delivery, with the recommendation to rewrite tho… | Open. Section 4 of docs/Report.md must not be submitted as-is. |
+| A010 | Mis-stated the consolidation accounting: claimed merging the field-level cases 'freed 2 s… | medium | The AI counted the merge as 3 cases collapsing into 1 (TC-04 + TC-05 + TC-06 -> FR11-TC04… | Corrected the accounting in docs/Report.md §2.4: 3 original cases (TC-04, TC-05, TC-06) b… | Fixed in the report before submission. The 12 automated cases themselves were unaffected … |
 | A011 | Ran the new FR-11 suite against all three browser projects even though Firefox is already… | low | The AI executed the default `playwright test` (all projects) instead of following the pro… | Re-ran through a new `npm run test:fr11` script pinned to Chrome + Edge, matching the exi… | Fixed; src/package.json now carries test:fr11 pinned to Chrome + Edge. Clean run: 22 pass… |
 | A011 | Attempted a TypeScript typecheck with `npx tsc --noEmit` on the edited fixtures; TypeScri… | low | The AI assumed a TypeScript compiler was available because the project is written in .ts,… | Used `playwright test --list` as the compile gate instead - it transpiles and loads the s… | Resolved; --list reported all 12 tests, and the subsequent live run executed the spec suc… |
+| A014 | Teardown could never run: the generated write_denied flow recorded a wrongly-created row … | high | The AI wrote the cleanup bookkeeping in reading order (call -> assert -> record) without … | Not human-caught. The AI found it by diffing the SUT database against its seed state afte… | Fixed. A full Chrome+Edge run now leaves products at 5, categories at 3 and no stray admi… |
+| A014 | Exploratory probing corrupted seeded SUT data: PUT /api/products/1 overwrote the seeded p… | high | Probing an authorisation boundary means sending requests that succeed when the product is… | Not human-caught. The AI noticed the mutated row in a follow-up listing, recovered the or… | Fixed. Product 1 restored to its seeded name, price, description, imageUrl and category_i… |
+| A016 | An edit to docs/Report.md deleted the entire 'Submission Checklist' section from the end … | medium | The AI applied a series of string replacements to the whole document without diffing the … | Not human-caught. The AI detected it when a later replacement failed to find its anchor t… | Restored with FR-12 values reflected, and every remaining deleted line in git diff was ch… |
+| A016 | Falsely reported that the HTML report's 'Run by' stamp was missing | low | The AI read the report payload's top-level 'title' key, which is absent; the stamp actual… | Not human-caught. The AI re-inspected the payload keys and found the value present and co… | No change needed; the config was already correct. Had the false reading been acted on, it… |
 
-Issues by severity: high=1, low=6, medium=5
+Issues by severity: high=3, low=7, medium=7
 
 ## 7. Summary of AI Assistance
 
 | Metric | Value |
 | --- | --- |
-| Total AI interactions | 12 |
-| Interactions with human review recorded | 11 |
-| AI outputs accepted as-is | 6 |
+| Total AI interactions | 16 |
+| Interactions with human review recorded | 12 |
+| AI outputs accepted as-is | 7 |
 | AI outputs accepted after human modification | 2 |
 | AI outputs rejected | 1 |
-| Issues found during human review | 12 |
+| Issues found during human review | 17 |
 
 **AI usage by category**
 
 | Category | Interactions |
 | --- | --- |
-| Documentation | 3 |
+| Documentation | 4 |
+| Automation script generation | 3 |
+| Bug analysis | 3 |
+| Test case analysis | 3 |
 | Agent Skill development | 2 |
-| Automation script generation | 2 |
-| Bug analysis | 2 |
-| Test case analysis | 2 |
 | Debugging | 1 |
 
 ## 8. Final Notes
@@ -738,6 +955,12 @@ Issues by severity: high=1, low=6, medium=5
 Entries A001-A003 cover the creation of the ai-audit-logger skill itself (2026-09-14). They were logged retrospectively at the end of that working session, so the timestamps are accurate to within a few minutes, not to the second. Prompts marked [EXCERPT] are shortened; the full text is in the Claude Code session transcript.
 
 Entries A005-A009 cover the FR-02 Playwright automation session (2026-09-14). They were logged at the end of that session from the live transcript, so the prompts are verbatim but the timestamps are the logging time, not the time each exchange occurred. A006 and A009 are deliberately left pending_review: the user has not performed a line-by-line review of the generated spec or of the rewritten report, and this log does not claim otherwise. A008 is recorded as rejected because no code change resolved it - Playwright's Firefox will not launch on this host, which is why the suite currently covers 24 of the 36 configured browser runs.
+
+Entries A013-A016 cover the FR-12 Access control session (2026-09-14). Prompts are verbatim from the live transcript; timestamps are the logging time, not the time each exchange occurred. A013 is recorded as accepted because the user explicitly accepted the consolidated 12-case set and asked for the report to be updated to match it. A014, A015 and A016 are left pending_review: the user has not performed a line-by-line review of the generated spec, of the defect analysis, or of the rewritten report sections, and this log does not claim otherwise.
+
+All four issues attached to A014 and A016 were found by the AI itself rather than by the human, and the human_correction field says so in each case. Two of them - the unreachable teardown and the overwritten seed product - were only detectable by comparing the SUT database against its seed state, not from the suite's own pass/fail output. The corrections were applied by the AI in-session and remain unverified by the human.
+
+FR-12 execution: 12 cases x 2 usable browsers = 24 runs, 14 passed, 10 failed, all ten failures being genuine product defects. Firefox remains unlaunchable on this host (see A008), so the three-feature suite covers 72 of the 108 configured browser runs.
 
 **Scope of this report.** It reproduces only what was recorded in `ai-audit-log.json`. It is evidence of the
 AI-use process, not a guarantee that the assignment's audit requirements are met - the student

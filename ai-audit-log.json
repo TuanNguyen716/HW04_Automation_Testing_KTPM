@@ -9,9 +9,9 @@
     "repo_path": "./src",
     "ai_tool": "Claude",
     "started_at": "2026-09-14 10:06:25 +0700",
-    "final_notes": "Entries A001-A003 cover the creation of the ai-audit-logger skill itself (2026-09-14). They were logged retrospectively at the end of that working session, so the timestamps are accurate to within a few minutes, not to the second. Prompts marked [EXCERPT] are shortened; the full text is in the Claude Code session transcript.\n\nEntries A005-A009 cover the FR-02 Playwright automation session (2026-09-14). They were logged at the end of that session from the live transcript, so the prompts are verbatim but the timestamps are the logging time, not the time each exchange occurred. A006 and A009 are deliberately left pending_review: the user has not performed a line-by-line review of the generated spec or of the rewritten report, and this log does not claim otherwise. A008 is recorded as rejected because no code change resolved it - Playwright's Firefox will not launch on this host, which is why the suite currently covers 24 of the 36 configured browser runs.",
-    "sut": "EShop SUT - backend http://localhost:3000, frontend http://localhost:5173",
-    "feature": "FR-02 Login and account lockout"
+    "final_notes": "Entries A001-A003 cover the creation of the ai-audit-logger skill itself (2026-09-14). They were logged retrospectively at the end of that working session, so the timestamps are accurate to within a few minutes, not to the second. Prompts marked [EXCERPT] are shortened; the full text is in the Claude Code session transcript.\n\nEntries A005-A009 cover the FR-02 Playwright automation session (2026-09-14). They were logged at the end of that session from the live transcript, so the prompts are verbatim but the timestamps are the logging time, not the time each exchange occurred. A006 and A009 are deliberately left pending_review: the user has not performed a line-by-line review of the generated spec or of the rewritten report, and this log does not claim otherwise. A008 is recorded as rejected because no code change resolved it - Playwright's Firefox will not launch on this host, which is why the suite currently covers 24 of the 36 configured browser runs.\n\nEntries A013-A016 cover the FR-12 Access control session (2026-09-14). Prompts are verbatim from the live transcript; timestamps are the logging time, not the time each exchange occurred. A013 is recorded as accepted because the user explicitly accepted the consolidated 12-case set and asked for the report to be updated to match it. A014, A015 and A016 are left pending_review: the user has not performed a line-by-line review of the generated spec, of the defect analysis, or of the rewritten report sections, and this log does not claim otherwise.\n\nAll four issues attached to A014 and A016 were found by the AI itself rather than by the human, and the human_correction field says so in each case. Two of them - the unreachable teardown and the overwritten seed product - were only detectable by comparing the SUT database against its seed state, not from the suite's own pass/fail output. The corrections were applied by the AI in-session and remain unverified by the human.\n\nFR-12 execution: 12 cases x 2 usable browsers = 24 runs, 14 passed, 10 failed, all ten failures being genuine product defects. Firefox remains unlaunchable on this host (see A008), so the three-feature suite covers 72 of the 108 configured browser runs.",
+    "sut": "EShop SUT - backend http://localhost:3000, frontend http://localhost:5173, web admin http://localhost:5174",
+    "feature": "FR-02 Login and account lockout; FR-11 Order history view (user); FR-12 Access control"
   },
   "created_at": "2026-09-14 10:06:25 +0700",
   "interactions": [
@@ -335,7 +335,103 @@
       "timestamp": "2026-09-14 13:59:56 +0700",
       "ai_tool": "Claude",
       "issues": []
+    },
+    {
+      "category": "Test case analysis",
+      "purpose": "Review the 12 draft FR-12 access-control test cases for redundancy, missing context and untestability, then propose the final automated set",
+      "feature": "FR-12 Access control",
+      "ai_tool": "Claude",
+      "output_lang": "md",
+      "file_modified": "docs/FR-12.md",
+      "prompt": "Please help me create Playwright test cases for automation testing. The system specifications are described in @\"docs/System Requirements Specification.md\", the api specification in @\"docs/api_specification.md\", I have the system running and ready. I want to start with test cases for the FR-12 Access control  function, test cases I think are described in @docs/FR-12.md, The limit is 12 test cases per function; please let me know if any seem redundant, lack context, or are untestable, and feel free to suggest any additional test cases you think should be included.",
+      "ai_output": "[EXCERPT] Findings on the draft set:\n\n- TC-12 ('Admin thuc hien cac thao tac quan tri') is wholly redundant - it is the union of TC-06, TC-08 and TC-10, and has no independent oracle. Dropped.\n- TC-07 + TC-09 + TC-11 (user create / edit / delete) are one flow under three HTTP verbs. Merged into FR12-TC10, which walks POST -> PUT -> DELETE and re-reads the record after each to prove the refusal protected the data. 3 cases -> 1.\n- TC-08 + TC-10 (admin create / edit) merged into FR12-TC11 as a full create -> read-back -> update -> delete lifecycle.\n- TC-04 ('JWT gia/sai') conflates two different failures; split into FR12-TC05 (wrong signature) and FR12-TC06 (payload edited, original signature kept).\n\nFour freed slots spent on paths the draft could not reach:\n- FR12-TC03 admin UI guard bypass via localStorage\n- FR12-TC06 tampered JWT payload\n- FR12-TC09 fully anonymous writes to /api/products\n- FR12-TC12 privilege escalation via PUT /api/users/me {\"role\":\"admin\"}\n\nUntestable and deliberately excluded: token expiry. backend/server.js:51 signs jwt.sign({id, role}, SECRET_KEY) with no exp claim and no expiresIn, so tokens issued by this build never expire. No input could make such a case fail.",
+      "human_review": "Accepted the consolidated 12-case set, including the four replacement cases and the exclusion of the token-expiry case, and instructed that docs/Report.md be updated to match it.",
+      "human_action": "Replied 'Yes, please edit my docs/Report.md matching the use cases you have written'.",
+      "accepted": true,
+      "modified": false,
+      "status": "accepted",
+      "id": "A013",
+      "timestamp": "2026-09-14 14:30:33 +0700",
+      "issues": []
+    },
+    {
+      "category": "Automation script generation",
+      "purpose": "Generate the data-driven FR-12 Playwright suite (spec + CSV + shared helpers) from the reviewed test cases",
+      "feature": "FR-12 Access control",
+      "ai_tool": "Claude",
+      "output_lang": "ts",
+      "test_case_id": "FR12-TC01..FR12-TC12",
+      "file_modified": "src/tests/fr-12-access-control.spec.ts, src/data/fr-12-access-control.csv, src/tests/fixtures.ts, src/package.json",
+      "prompt": "(continuation of A013 - same user turn) Generate the Playwright automation for the agreed FR-12 set, following the project's existing data-driven convention: one spec looped over a separate CSV, shared helpers in fixtures.ts, three browser projects, HTML report stamped with the student id.",
+      "ai_output": "[EXCERPT] fixtures.ts extended with an FR-12 section: ADMIN_BASE (the Web Admin app on :5174, separate from the storefront baseURL), a TokenKind union ('none'|'invalid'|'tampered'|'user'|'admin'), tamperRole() which edits the JWT payload and keeps the original signature, FORGED_TOKEN, tokenFor(), apiCall(), DENIED = [401,403], and product fixture helpers.\n\nCSV shaped as a credential x resource matrix:\n\n  tc_id,title,check,method,paths,token,expect_status,expected_message\n  FR12-TC07,User dung token cua minh goi API Admin thi bi tu choi 403,api_denied,GET,/api/admin/users|/api/admin/orders|/api/coupons,user,403,\n\nSpec branches on row.check and reuses one flow:\n\n  const rows = readCsv('data/fr-12-access-control.csv');\n  for (const row of rows) {\n    test(`${row.tc_id} - ${row.title}`, async ({ page }) => {\n      const user = await registerAndLogin(row.tc_id.toLowerCase());\n      const token = await tokenFor(row.token as TokenKind, user);\n      ...\n    });\n  }\n\nAdded npm script test:fr12 matching the existing test:fr02 / test:fr11 convention.\n\nResult: 12 cases x 3 browser projects listed; on Chrome and Edge 7 passed / 5 failed, the 5 failures being the access-control defects recorded in A015.",
+      "status": "pending_review",
+      "id": "A014",
+      "timestamp": "2026-09-14 14:30:59 +0700",
+      "issues": [
+        {
+          "description": "Teardown could never run: the generated write_denied flow recorded a wrongly-created row AFTER the assertion that the row must not exist",
+          "severity": "high",
+          "type": "Implementation error",
+          "why": "The AI wrote the cleanup bookkeeping in reading order (call -> assert -> record) without tracing control flow. Because the assertion throws on exactly the case that creates a stray row, strays.push() was unreachable in every situation where it mattered. The test's own pass/fail output looked correct, so the defect was invisible from the suite itself.",
+          "human_correction": "Not human-caught. The AI found it by diffing the SUT database against its seed state after a full run and moved the bookkeeping above the assertion, backed by a finally block.",
+          "resolution": "Fixed. A full Chrome+Edge run now leaves products at 5, categories at 3 and no stray admin accounts, verified by querying the API after the run. Correction applied by the AI in-session and not yet independently reviewed by the human."
+        },
+        {
+          "description": "Exploratory probing corrupted seeded SUT data: PUT /api/products/1 overwrote the seeded product 'iPhone 15 Pro Max' with a probe payload",
+          "severity": "high",
+          "type": "Incorrect assumption about SUT",
+          "why": "Probing an authorisation boundary means sending requests that succeed when the product is broken. The AI aimed a write probe at an existing seeded row without considering that the write would go through - which is precisely what the defect under test guarantees.",
+          "human_correction": "Not human-caught. The AI noticed the mutated row in a follow-up listing, recovered the original values from backend/database.js and restored them, then moved all destructive probing onto rows created for the purpose.",
+          "resolution": "Fixed. Product 1 restored to its seeded name, price, description, imageUrl and category_id; probe products and coupon deleted. FR-11's currency and status cases depend on these same rows, so the corruption would have contaminated another feature's results."
+        }
+      ]
+    },
+    {
+      "category": "Bug analysis",
+      "purpose": "Trace each FR-12 failure to a source line in the SUT and determine whether it is a product defect or a test defect",
+      "feature": "FR-12 Access control",
+      "ai_tool": "Claude",
+      "output_lang": "js",
+      "test_case_id": "FR12-TC03, FR12-TC07, FR12-TC09, FR12-TC10, FR12-TC12",
+      "file_modified": "docs/FR-12.md, docs/Report.md",
+      "prompt": "(continuation of A013 - same user turn) Determine for each failing FR-12 case whether it is a genuine product defect, and cite the responsible source line.",
+      "ai_output": "[EXCERPT] Four defects, all confirmed in the SUT source and reproduced by direct API calls before any test was written.\n\nBug 9 (root cause) - no role check exists anywhere. backend/server.js:100-110:\n  const authenticateToken = (req, res, next) => {\n    const authHeader = req.headers[\"authorization\"];\n    const token = authHeader && authHeader.split(\" \")[1];\n    if (token == null) return res.status(401).json({ error: \"Unauthorized\" });\n    jwt.verify(token, SECRET_KEY, (err, user) => {\n      if (err) return res.status(403).json({ error: \"Forbidden\" });\n      req.user = user; next();\n    });\n  };\nIt verifies the signature and never consults req.user.role; no route does either.\n\nBug 8 - server.js:167,179,191 register POST/PUT/DELETE /api/products with no middleware at all, so anonymous callers write.\n\nBug 7 (worst by exploitability) - server.js:119-126 destructures role from req.body and applies it, so a user self-promotes; the next login mints a genuine role=admin JWT. Verified end to end on a throwaway account.\n\nBug 10 - frontend-admin/src/App.jsx:65 puts the role check inside handleLogin only; App.jsx:188 gates the dashboard on if (!token), so a user JWT written to localStorage unlocks the whole Admin UI.\n\nThese are one architectural failure seen from four angles: the system authenticates and does not authorise. The seven passing cases support that reading - the signature path (TC-05, TC-06) and the admin operations (TC-01, TC-08, TC-11) are all correct, which localises the fault to the missing role check rather than a broken auth layer.",
+      "status": "pending_review",
+      "id": "A015",
+      "timestamp": "2026-09-14 14:31:28 +0700",
+      "issues": []
+    },
+    {
+      "category": "Documentation",
+      "purpose": "Propagate the FR-12 results through docs/Report.md - test case sections, automation approach, execution results, bug table and summary metrics",
+      "feature": "FR-12 Access control",
+      "ai_tool": "Claude",
+      "output_lang": "md",
+      "file_modified": "docs/Report.md, docs/FR-12.md",
+      "prompt": "Yes, please edit my @../docs/Report.md matching the use cases you have written",
+      "ai_output": "[EXCERPT] Added sections 2.5 (FR-12 manual cases as drafted) and 2.6 (automated set + consolidation rationale); extended 3.2 with the FR-12 CSV column table and a teardown subsection; added four assertion patterns to 3.3; updated 3.4 browser runs from 48 to 72 of 108; added test:fr12 to 3.5; added three review rows to section 4; added the FR-12 results table and per-case breakdown to section 5 (combined 72 runs, 50 passed, 22 failed); added bugs 7-10 with source citations plus the shared root-cause analysis and minimal fix to section 6; updated sections 8 and 9 (10 bugs, 5 critical).",
+      "status": "pending_review",
+      "id": "A016",
+      "timestamp": "2026-09-14 14:31:28 +0700",
+      "issues": [
+        {
+          "description": "An edit to docs/Report.md deleted the entire 'Submission Checklist' section from the end of the file",
+          "severity": "medium",
+          "type": "Implementation error",
+          "why": "The AI applied a series of string replacements to the whole document without diffing the result against the previous version; a replacement consumed the trailing block as collateral. Markdown edits produce no error on unintended deletion, so nothing surfaced it at edit time.",
+          "human_correction": "Not human-caught. The AI detected it when a later replacement failed to find its anchor text, then ran git diff against HEAD to establish exactly what had been lost.",
+          "resolution": "Restored with FR-12 values reflected, and every remaining deleted line in git diff was checked to confirm it was an intentional replacement. Disclosed to the human in the response. Correction applied by the AI and not yet independently reviewed."
+        },
+        {
+          "description": "Falsely reported that the HTML report's 'Run by' stamp was missing",
+          "severity": "low",
+          "type": "Reasoning error",
+          "why": "The AI read the report payload's top-level 'title' key, which is absent; the stamp actually lives at options.title. It drew a conclusion from one unsuccessful lookup instead of inspecting the object's structure - the same failure mode as the earlier grep false negative recorded for FR-02, one layer deeper.",
+          "human_correction": "Not human-caught. The AI re-inspected the payload keys and found the value present and correct.",
+          "resolution": "No change needed; the config was already correct. Had the false reading been acted on, it would have prompted an unnecessary change to a working reporter configuration."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-09-14 14:00:52 +0700"
+  "updated_at": "2026-09-14 14:31:48 +0700"
 }
