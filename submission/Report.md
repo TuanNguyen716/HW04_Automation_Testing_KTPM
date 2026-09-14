@@ -495,7 +495,7 @@ Agent Skills used:
 
 - Public GitHub repository: `https://github.com/TuanNguyen716/HW04_Automation_Testing_KTPM`
 - HTML reports: `src/playwright-report/index.html`
-- Unlisted YouTube demo: `TODO`
+- Unlisted YouTube demo: `https://youtu.be/FWKXg_g_xFE`
 
 
 
