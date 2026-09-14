@@ -1,0 +1,13 @@
+tc_id,title,check,statuses,amounts,other_user_statuses,expect_rows,expected_message
+FR11-TC01,Đăng nhập qua UI rồi mở Lịch sử đơn hàng thì thấy đơn của mình,list,pending|confirmed,250000|99000,,2,
+FR11-TC02,User chưa có đơn hàng nào thì hiển thị trạng thái rỗng,empty,,,,0,Bạn chưa có đơn hàng nào.
+FR11-TC03,Bảng có đủ 4 cột Mã đơn / Ngày đặt / Tổng tiền / Trạng thái,columns,pending,250000,,1,
+FR11-TC04,Bốn giá trị của một đơn hàng khớp với dữ liệu backend,fields,shipping,1234567,,1,
+FR11-TC05,Tổng tiền hiển thị đúng định dạng tiền tệ có phân nhóm và ký hiệu ₫,currency,pending,1234567,,1,
+FR11-TC06,Mọi trạng thái được dịch sang tiếng Việt và không lộ mã tiếng Anh,vi_status,pending|confirmed|shipping|delivered|canceled,100000,,5,
+FR11-TC07,Các trạng thái khác nhau được phân biệt bằng màu sắc khác nhau,colors,pending|confirmed|shipping|delivered|canceled,100000,,5,
+FR11-TC08,User có nhiều đơn hàng thì hiển thị đủ không thiếu dòng nào,multiple,pending|confirmed|shipping|delivered|canceled|pending,100000,,6,
+FR11-TC09,Lịch sử của User A không chứa đơn hàng của User B,isolation_ui,pending|confirmed,250000,pending|delivered,2,
+FR11-TC10,API chỉ trả đơn hàng của chính chủ token,isolation_api,pending,250000,pending,1,
+FR11-TC11,Chưa đăng nhập thì không xem được lịch sử đơn hàng,anonymous,,,,0,Vui lòng đăng nhập
+FR11-TC12,Refresh trang vẫn tải và hiển thị đúng lịch sử đơn hàng,refresh,pending|confirmed|shipping,250000,,3,
