@@ -1,3 +1,7 @@
 .DS_Store
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+node_modules/
+src/test-results/
+src/playwright-report/
+.playwright-mcp/
